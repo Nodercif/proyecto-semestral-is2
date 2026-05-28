@@ -13,4 +13,8 @@ Thumbs.db
 .idea/
 *.swp
 
+<<<<<<< HEAD
 package-lock.json
+=======
+package-lock.json
+>>>>>>> origin/feature/tarea-1-base-de-datos
