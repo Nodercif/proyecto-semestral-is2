@@ -2,7 +2,6 @@
  * Tests — Tarea 4: POST /incidentes/:id/involucrados
  * Valida los criterios de aceptación definidos en el Sprint Backlog.
  *
- * Autor: Ignacio Jara Valdebenito
  *
  * Ejecutar: npm test
  * (usa vitest en modo in-source con una base de datos de prueba real)

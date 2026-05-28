@@ -2,7 +2,6 @@
  * Tests — Tarea 5: GET /estudiantes/:id/incidentes
  * Valida los criterios de aceptación del Sprint Backlog (HU3/HU5).
  *
- * Autor: Ignacio Jara Valdebenito
  *
  * Ejecutar: npm test
  * Requiere seed ejecutado previamente: npm run db:seed

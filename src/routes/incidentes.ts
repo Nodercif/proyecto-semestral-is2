@@ -6,7 +6,6 @@
  * (afectado, responsable, testigo, interviniente).
  * Valida que el incidente y el estudiante existan.
  *
- * Autor: Ignacio Jara Valdebenito
  */
 
 import { Router, Request, Response } from 'express'
@@ -46,7 +45,7 @@ router.post('/:id/involucrados', async (req: Request, res: Response) => {
 
   const { estudianteId, rol, observacion, funcionarioIntervinienteId } = req.body
 
-  // ── Validaciones de campos obligatorios ──────────────────────────────────
+  // Validaciones de campos obligatorios 
 
   if (estudianteId === undefined || estudianteId === null) {
     res.status(400).json({ error: 'El campo estudianteId es obligatorio.' })
@@ -70,7 +69,7 @@ router.post('/:id/involucrados', async (req: Request, res: Response) => {
     return
   }
 
-  // ── Verificar existencia del incidente ───────────────────────────────────
+  //  Verificar existencia del incidente 
 
   const incidente = await prisma.incidente.findUnique({
     where: { id: incidenteId },
@@ -81,7 +80,7 @@ router.post('/:id/involucrados', async (req: Request, res: Response) => {
     return
   }
 
-  // ── Verificar existencia del estudiante ──────────────────────────────────
+  //  Verificar existencia del estudiante 
 
   const estudiante = await prisma.estudiante.findUnique({
     where: { id: estudianteId },
@@ -92,7 +91,7 @@ router.post('/:id/involucrados', async (req: Request, res: Response) => {
     return
   }
 
-  // ── Verificar funcionario interviniente si corresponde ───────────────────
+  //  Verificar funcionario interviniente si corresponde 
 
   if (funcionarioIntervinienteId !== undefined && funcionarioIntervinienteId !== null) {
     const funcionario = await prisma.funcionarioInstitucional.findUnique({
@@ -106,7 +105,7 @@ router.post('/:id/involucrados', async (req: Request, res: Response) => {
     }
   }
 
-  // ── Crear el involucrado ──────────────────────────────────────────────────
+  //  Crear el involucrado 
 
   try {
     const involucrado = await prisma.involucrado.create({

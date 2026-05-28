@@ -5,9 +5,7 @@
  * Retorna todos los incidentes en los que ha participado un estudiante,
  * indicando en cada uno su rol (afectado, responsable, testigo, interviniente),
  * junto con fecha, tipo y gravedad. Ordenados por fecha descendente.
- *
- * Autor: Ignacio Jara Valdebenito
- */
+*/
 
 import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
@@ -33,7 +31,7 @@ router.get('/:id/incidentes', async (req: Request, res: Response) => {
     return
   }
 
-  // ── Verificar existencia del estudiante ──────────────────────────────────
+  // Verificar existencia del estudiante
 
   const estudiante = await prisma.estudiante.findUnique({
     where: { id: estudianteId },
@@ -45,7 +43,7 @@ router.get('/:id/incidentes', async (req: Request, res: Response) => {
     return
   }
 
-  // ── Filtros opcionales ────────────────────────────────────────────────────
+  //  Filtros opcionales 
 
   const { tipo, gravedad, desde, hasta } = req.query
 
@@ -68,7 +66,7 @@ router.get('/:id/incidentes', async (req: Request, res: Response) => {
     fechaFiltro.lte = h
   }
 
-  // ── Consulta principal ────────────────────────────────────────────────────
+  //Consulta principal 
 
   const involucrados = await prisma.involucrado.findMany({
     where: {
@@ -98,7 +96,7 @@ router.get('/:id/incidentes', async (req: Request, res: Response) => {
     },
   })
 
-  // ── Formatear respuesta ───────────────────────────────────────────────────
+  // Formatear respuesta 
 
   const historial = involucrados.map((inv) => ({
     rol: inv.rol,
