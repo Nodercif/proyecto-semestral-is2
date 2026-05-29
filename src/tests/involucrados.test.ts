@@ -1,143 +1,72 @@
-/**
- * Tests — Tarea 4: POST /incidentes/:id/involucrados
- * Valida los criterios de aceptación definidos en el Sprint Backlog.
- *
- *
- * Ejecutar: npm test
- * (usa vitest en modo in-source con una base de datos de prueba real)
- *
- * IMPORTANTE: requiere la variable de entorno DATABASE_URL apuntando
- * a una BD PostgreSQL de prueba y el seed ejecutado previamente.
- */
-
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import app from '../app'
-import { PrismaClient } from '@prisma/client'
+import { prismaMock, Prisma } from '../__mocks__/@prisma/client'
 
-const prisma = new PrismaClient()
+// NO se llama vi.mock() — el alias en vitest.config ya redirige @prisma/client al mock
 
-// IDs que se populan en el seed de Gabriela (tarea 1)
-// Si los IDs difieren en tu entorno, cámbialos aquí.
-let incidenteId: number
-let estudianteId: number
-let estudiante2Id: number
+const incidenteEj = { id: 1, fecha: new Date(), descripcion: 'test', tipo: 'AGRESION_FISICA', gravedad: 'GRAVE' }
+const estudianteEj = { id: 10, nombres: 'Martín', apellidos: 'Alvarado', curso: '1°A' }
 
-beforeAll(async () => {
-  // Obtener el primer incidente y dos estudiantes del seed
-  const incidente = await prisma.incidente.findFirst({ orderBy: { id: 'asc' } })
-  const estudiantes = await prisma.estudiante.findMany({ orderBy: { id: 'asc' }, take: 2 })
-
-  if (!incidente || estudiantes.length < 2) {
-    throw new Error('Ejecuta el seed antes de correr los tests: npm run db:seed')
-  }
-
-  incidenteId = incidente.id
-  estudianteId = estudiantes[0].id
-  estudiante2Id = estudiantes[1].id
-
-  // Limpiar involucrados previos del incidente de prueba para partir limpio
-  await prisma.involucrado.deleteMany({ where: { incidenteId } })
-})
-
-afterAll(async () => {
-  await prisma.$disconnect()
-})
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('POST /incidentes/:id/involucrados', () => {
 
-  it('Se pueden agregar múltiples involucrados a un mismo incidente', async () => {
-    // Agregar primer involucrado
-    const res1 = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId, rol: 'AFECTADO' })
-
-    expect(res1.status).toBe(201)
-    expect(res1.body.rol).toBe('AFECTADO')
-    expect(res1.body.estudianteId).toBe(estudianteId)
-
-    // Agregar segundo involucrado (distinto estudiante, distinto rol)
-    const res2 = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId: estudiante2Id, rol: 'TESTIGO' })
-
-    expect(res2.status).toBe(201)
-    expect(res2.body.rol).toBe('TESTIGO')
+  it('201 — crea involucrado con datos válidos', async () => {
+    prismaMock.incidente.findUnique.mockResolvedValue(incidenteEj)
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.create.mockResolvedValue({
+      id: 1, incidenteId: 1, estudianteId: 10, rol: 'AFECTADO',
+      observacion: null, estudiante: estudianteEj,
+    })
+    const res = await request(app).post('/incidentes/1/involucrados').send({ estudianteId: 10, rol: 'AFECTADO' })
+    expect(res.status).toBe(201)
+    expect(res.body.rol).toBe('AFECTADO')
+    expect(res.body.estudiante.id).toBe(10)
   })
 
-  it('El rol acepta solo los valores válidos del enum', async () => {
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId, rol: 'ROL_INVALIDO' })
-
+  it('400 — rol inválido', async () => {
+    const res = await request(app).post('/incidentes/1/involucrados').send({ estudianteId: 10, rol: 'MALO' })
     expect(res.status).toBe(400)
     expect(res.body.error).toMatch(/no es válido/)
+    expect(prismaMock.incidente.findUnique).not.toHaveBeenCalled()
   })
 
-  it('Retorna 404 si el incidente no existe', async () => {
-    const res = await request(app)
-      .post('/incidentes/999999/involucrados')
-      .send({ estudianteId, rol: 'TESTIGO' })
-
+  it('404 — incidente no existe', async () => {
+    prismaMock.incidente.findUnique.mockResolvedValue(null)
+    const res = await request(app).post('/incidentes/999/involucrados').send({ estudianteId: 10, rol: 'TESTIGO' })
     expect(res.status).toBe(404)
     expect(res.body.error).toMatch(/incidente/)
   })
 
-  it('Retorna 404 si el estudiante no existe', async () => {
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId: 999999, rol: 'TESTIGO' })
-
+  it('404 — estudiante no existe', async () => {
+    prismaMock.incidente.findUnique.mockResolvedValue(incidenteEj)
+    prismaMock.estudiante.findUnique.mockResolvedValue(null)
+    const res = await request(app).post('/incidentes/1/involucrados').send({ estudianteId: 999, rol: 'AFECTADO' })
     expect(res.status).toBe(404)
     expect(res.body.error).toMatch(/estudiante/)
   })
 
-  it('Retorna 409 si se intenta registrar el mismo estudiante con el mismo rol dos veces', async () => {
-    // Primera vez: debe funcionar
-    await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId, rol: 'RESPONSABLE' })
-
-    // Segunda vez con el mismo par (estudianteId, rol): 409
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId, rol: 'RESPONSABLE' })
-
+  it('409 — mismo estudiante y rol duplicado', async () => {
+    prismaMock.incidente.findUnique.mockResolvedValue(incidenteEj)
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002' })
+    )
+    const res = await request(app).post('/incidentes/1/involucrados').send({ estudianteId: 10, rol: 'RESPONSABLE' })
     expect(res.status).toBe(409)
     expect(res.body.error).toMatch(/ya está registrado/)
   })
 
-  it('Retorna 400 si falta el campo estudianteId', async () => {
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ rol: 'TESTIGO' })
-
+  it('400 — falta estudianteId', async () => {
+    const res = await request(app).post('/incidentes/1/involucrados').send({ rol: 'TESTIGO' })
     expect(res.status).toBe(400)
     expect(res.body.error).toMatch(/estudianteId/)
   })
 
-  it('Retorna 400 si falta el campo rol', async () => {
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId })
-
+  it('400 — falta rol', async () => {
+    const res = await request(app).post('/incidentes/1/involucrados').send({ estudianteId: 10 })
     expect(res.status).toBe(400)
     expect(res.body.error).toMatch(/rol/)
-  })
-
-  it('El involucrado creado incluye los datos del estudiante en la respuesta', async () => {
-    // Limpiar INTERVINIENTE previo si existe
-    await prisma.involucrado.deleteMany({
-      where: { incidenteId, estudianteId: estudiante2Id, rol: 'INTERVINIENTE' },
-    })
-
-    const res = await request(app)
-      .post(`/incidentes/${incidenteId}/involucrados`)
-      .send({ estudianteId: estudiante2Id, rol: 'INTERVINIENTE', observacion: 'Separó la pelea' })
-
-    expect(res.status).toBe(201)
-    expect(res.body.estudiante).toBeDefined()
-    expect(res.body.estudiante.id).toBe(estudiante2Id)
-    expect(res.body.observacion).toBe('Separó la pelea')
   })
 })

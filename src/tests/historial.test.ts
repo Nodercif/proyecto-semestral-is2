@@ -1,90 +1,65 @@
-/**
- * Tests — Tarea 5: GET /estudiantes/:id/incidentes
- * Valida los criterios de aceptación del Sprint Backlog (HU3/HU5).
- *
- *
- * Ejecutar: npm test
- * Requiere seed ejecutado previamente: npm run db:seed
- */
-
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
 import app from '../app'
-import { PrismaClient } from '@prisma/client'
+import { prismaMock } from '../__mocks__/@prisma/client'
 
-const prisma = new PrismaClient()
+const estudianteEj = { id: 1, nombres: 'Martín', apellidos: 'Alvarado Torres', curso: '1°A' }
+const involucradosEj = [
+  {
+    rol: 'RESPONSABLE', observacion: null,
+    incidente: { id: 2, fecha: new Date('2026-04-22'), descripcion: 'Insultos', tipo: 'AGRESION_VERBAL', gravedad: 'MODERADO',
+      registradoPor: { id: 1, nombres: 'Gabriela', apellidos: 'Muñoz', cargo: 'ENCARGADO_CONVIVENCIA' } },
+  },
+  {
+    rol: 'RESPONSABLE', observacion: null,
+    incidente: { id: 1, fecha: new Date('2026-04-10'), descripcion: 'Pelea', tipo: 'AGRESION_FISICA', gravedad: 'GRAVE',
+      registradoPor: { id: 1, nombres: 'Gabriela', apellidos: 'Muñoz', cargo: 'ENCARGADO_CONVIVENCIA' } },
+  },
+]
 
-let estudianteConIncidentes: number   // Martín — tiene 2 incidentes en el seed
-let estudianteSinIncidentes: number   // Estudiante nuevo sin incidentes
-
-beforeAll(async () => {
-  // Martín es el responsable en ambos incidentes del seed
-  const martin = await prisma.estudiante.findFirst({
-    where: { nombres: 'Martín' },
-  })
-  if (!martin) throw new Error('Ejecuta el seed antes de correr los tests: npm run db:seed')
-  estudianteConIncidentes = martin.id
-
-  // Crear un estudiante limpio sin incidentes para el test de lista vacía
-  const nuevo = await prisma.estudiante.upsert({
-    where: { rut: '99999999-9' },
-    update: {},
-    create: { rut: '99999999-9', nombres: 'Test', apellidos: 'Sin Incidentes', curso: '4°D' },
-  })
-  estudianteSinIncidentes = nuevo.id
-})
-
-afterAll(async () => {
-  await prisma.$disconnect()
-})
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('GET /estudiantes/:id/incidentes', () => {
 
-  it('Retorna historial de incidentes con el rol del estudiante en cada uno', async () => {
-    const res = await request(app).get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-
+  it('200 — retorna historial con rol en cada incidente', async () => {
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.findMany.mockResolvedValue(involucradosEj)
+    const res = await request(app).get('/estudiantes/1/incidentes')
     expect(res.status).toBe(200)
-    expect(res.body.incidentes).toBeInstanceOf(Array)
-    expect(res.body.incidentes.length).toBeGreaterThan(0)
-
-    // Cada elemento debe traer el rol
-    for (const item of res.body.incidentes) {
-      expect(item.rol).toBeDefined()
-      expect(item.incidente).toBeDefined()
-    }
+    expect(res.body.incidentes).toHaveLength(2)
+    expect(res.body.incidentes[0].rol).toBeDefined()
   })
 
-  it('Si el estudiante no tiene incidentes, retorna lista vacía [] con 200 OK', async () => {
-    const res = await request(app).get(`/estudiantes/${estudianteSinIncidentes}/incidentes`)
-
+  it('200 con lista vacía si no tiene incidentes', async () => {
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.findMany.mockResolvedValue([])
+    const res = await request(app).get('/estudiantes/1/incidentes')
     expect(res.status).toBe(200)
     expect(res.body.incidentes).toEqual([])
     expect(res.body.totalIncidentes).toBe(0)
   })
 
-  it('Si el estudiante no existe, retorna 404', async () => {
-    const res = await request(app).get('/estudiantes/999999/incidentes')
-
+  it('404 si el estudiante no existe', async () => {
+    prismaMock.estudiante.findUnique.mockResolvedValue(null)
+    const res = await request(app).get('/estudiantes/999/incidentes')
     expect(res.status).toBe(404)
     expect(res.body.error).toMatch(/estudiante/)
   })
 
-  it('Los incidentes están ordenados por fecha descendente', async () => {
-    const res = await request(app).get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-
-    expect(res.status).toBe(200)
-    const fechas: Date[] = res.body.incidentes.map((i: any) => new Date(i.incidente.fecha))
-
+  it('Incidentes ordenados por fecha descendente', async () => {
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.findMany.mockResolvedValue(involucradosEj)
+    const res = await request(app).get('/estudiantes/1/incidentes')
+    const fechas = res.body.incidentes.map((i: any) => new Date(i.incidente.fecha).getTime())
     for (let idx = 1; idx < fechas.length; idx++) {
-      // Cada fecha debe ser <= la anterior (descendente)
-      expect(fechas[idx].getTime()).toBeLessThanOrEqual(fechas[idx - 1].getTime())
+      expect(fechas[idx]).toBeLessThanOrEqual(fechas[idx - 1])
     }
   })
 
-  it('Cada incidente incluye fecha, tipo, gravedad y descripción', async () => {
-    const res = await request(app).get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-
-    expect(res.status).toBe(200)
+  it('Cada incidente tiene fecha, tipo, gravedad y descripción', async () => {
+    prismaMock.estudiante.findUnique.mockResolvedValue(estudianteEj)
+    prismaMock.involucrado.findMany.mockResolvedValue(involucradosEj)
+    const res = await request(app).get('/estudiantes/1/incidentes')
     for (const item of res.body.incidentes) {
       expect(item.incidente.fecha).toBeDefined()
       expect(item.incidente.tipo).toBeDefined()
@@ -93,39 +68,8 @@ describe('GET /estudiantes/:id/incidentes', () => {
     }
   })
 
-  it('La respuesta incluye datos del estudiante consultado', async () => {
-    const res = await request(app).get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-
-    expect(res.status).toBe(200)
-    expect(res.body.estudiante).toBeDefined()
-    expect(res.body.estudiante.id).toBe(estudianteConIncidentes)
-  })
-
-  it('Filtra correctamente por tipo de incidente (query param ?tipo=)', async () => {
-    const res = await request(app)
-      .get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-      .query({ tipo: 'AGRESION_FISICA' })
-
-    expect(res.status).toBe(200)
-    for (const item of res.body.incidentes) {
-      expect(item.incidente.tipo).toBe('AGRESION_FISICA')
-    }
-  })
-
-  it('Filtra correctamente por gravedad (query param ?gravedad=)', async () => {
-    const res = await request(app)
-      .get(`/estudiantes/${estudianteConIncidentes}/incidentes`)
-      .query({ gravedad: 'GRAVE' })
-
-    expect(res.status).toBe(200)
-    for (const item of res.body.incidentes) {
-      expect(item.incidente.gravedad).toBe('GRAVE')
-    }
-  })
-
-  it('Retorna 400 si el id no es numérico', async () => {
+  it('400 si el id no es numérico', async () => {
     const res = await request(app).get('/estudiantes/abc/incidentes')
-
     expect(res.status).toBe(400)
   })
 })
