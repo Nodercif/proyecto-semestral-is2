@@ -43,8 +43,8 @@ vi.mock('../src/config/prisma.js', () => {
 });
 
 // Importar la app DESPUÉS del mock para que Prisma ya esté interceptado
-import app from '../src/index.js';
-import prisma from '../src/config/prisma.js';
+import app from '../index.js';
+import prisma from '../config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures reutilizables
