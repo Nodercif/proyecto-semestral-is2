@@ -5,8 +5,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
+    // Solo correr tests en src/tests/, ignorar backend/
+    include: ['src/tests/**/*.test.ts'],
+    singleThread: true,
     alias: {
       '@prisma/client': path.resolve(__dirname, 'src/__mocks__/@prisma/client.ts'),
     },
