@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// Enumeraciones del dominio
+// ─────────────────────────────────────────
+
+enum TipoIncidente {
+  AGRESION_FISICA
+  AGRESION_VERBAL
+  BULLYING
+  CIBERBULLYING
+  DANO_MATERIAL
+  CONDUCTA_DISRUPTIVA
+  OTRO
+}
+
+enum NivelGravedad {
+  LEVE
+  MODERADO
+  GRAVE
+  MUY_GRAVE
+}
+
+enum EstadoIncidente {
+  ABIERTO
+  EN_PROCESO
+  RESUELTO
+  CERRADO
+}
+
+enum RolInvolucrado {
+  AGRESOR
+  VICTIMA
+  TESTIGO
+}
+
+enum Genero {
+  MASCULINO
+  FEMENINO
+  OTRO
+  PREFIERE_NO_INDICAR
+}
+
+// ─────────────────────────────────────────
+// Entidades principales
+// ─────────────────────────────────────────
+
+model Estudiante {
+  id              Int           @id @default(autoincrement())
+  rut             String        @unique
+  nombres         String
+  apellidos       String
+  fechaNacimiento DateTime
+  genero          Genero
+  curso           String        // Ej: "3°A", "4°B"
+  nivel           String        // Ej: "Básica", "Media"
+  anioIngreso     Int
+  activo          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  involucrados    Involucrado[]
+}
+
+model FuncionarioInstitucional {
+  id              Int           @id @default(autoincrement())
+  rut             String        @unique
+  nombres         String
+  apellidos       String
+  cargo           String        // Ej: "Inspector", "Orientador", "Director"
+  correo          String        @unique
+  telefono        String?
+  activo          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  incidentesReportados  Incidente[]   @relation("ReportadoPor")
+  incidentesAtendidos   Incidente[]   @relation("AtendidoPor")
+}
+
+model Incidente {
+  id              Int                      @id @default(autoincrement())
+  tipo            TipoIncidente
+  gravedad        NivelGravedad
+  estado          EstadoIncidente          @default(ABIERTO)
+  descripcion     String
+  lugar           String
+  fechaOcurrencia DateTime
+  accioesTomadas  String?
+  observaciones   String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  reportadoPorId  Int
+  reportadoPor    FuncionarioInstitucional @relation("ReportadoPor", fields: [reportadoPorId], references: [id])
+
+  atendidoPorId   Int?
+  atendidoPor     FuncionarioInstitucional? @relation("AtendidoPor", fields: [atendidoPorId], references: [id])
+
+  involucrados    Involucrado[]
+}
+
+model Involucrado {
+  id            Int            @id @default(autoincrement())
+  rol           RolInvolucrado
+  descripcion   String?        // Detalle del rol en el incidente específico
+
+  incidenteId   Int
+  incidente     Incidente      @relation(fields: [incidenteId], references: [id], onDelete: Cascade)
+
+  estudianteId  Int
+  estudiante    Estudiante     @relation(fields: [estudianteId], references: [id])
+
+  createdAt     DateTime       @default(now())
+
+  @@unique([incidenteId, estudianteId]) // Un estudiante no puede tener dos roles en el mismo incidente
+}
