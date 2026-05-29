@@ -1,20 +1,17 @@
 # Dependencias
 node_modules/
- 
+
 # Variables de entorno
 .env
- 
+
 # OS
 .DS_Store
 Thumbs.db
- 
+
 # Editores
 .vscode/
 .idea/
 *.swp
 
-<<<<<<< HEAD
+# Lock files
 package-lock.json
-=======
-package-lock.json
->>>>>>> origin/feature/tarea-1-base-de-datos
