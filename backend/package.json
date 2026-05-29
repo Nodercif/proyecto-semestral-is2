@@ -3,21 +3,27 @@
   "version": "1.0.0",
   "description": "Sistema de Gestión de Convivencia Escolar — IS2 Equipo 02",
   "scripts": {
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset",
-    "test": "vitest run"
+    "dev":          "tsx watch src/index.ts",
+    "start":        "tsx src/index.ts",
+    "test":         "vitest run",
+    "db:generate":  "prisma generate",
+    "db:migrate":   "prisma migrate dev --name init",
+    "db:seed":      "npx tsx prisma/seed.ts",
+    "db:studio":    "prisma studio",
+    "db:reset":     "prisma migrate reset"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
-    "prisma": "^6.0.0"
+    "express":        "^5.2.1",
+    "prisma":         "^6.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "tsx": "^4.0.0",
-    "vitest": "^4.1.7"
+    "@types/express":   "^5.0.6",
+    "@types/node":      "^25.9.1",
+    "@types/supertest": "^7.2.0",
+    "supertest":        "^7.2.2",
+    "tsx":              "^4.0.0",
+    "vitest":           "^4.1.7"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

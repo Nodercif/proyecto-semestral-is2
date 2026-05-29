@@ -1,16 +1,20 @@
 # Dependencias
 node_modules/
- 
+
 # Variables de entorno
 .env
- 
+
 # OS
 .DS_Store
 Thumbs.db
- 
+
 # Editores
 .vscode/
 .idea/
 *.swp
 
+<<<<<<< feature/tarea-4-endpoint-involucrados
+# Lock files
+=======
+>>>>>>> main
 package-lock.json
