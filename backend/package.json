@@ -1,0 +1,25 @@
+{
+  "name": "convivencia-escolar",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Convivencia Escolar — IS2 Equipo 02",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev --name init",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "prisma": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.0.0",
+    "vitest": "^4.1.7"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  }
+}
