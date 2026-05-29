@@ -1,7 +1,10 @@
 /**
- * Tests unitarios — IncidenteRepository
- *
- * Se simulan las llamadas a Prisma para no requerir una base de datos real.
+ * Tests unitarios — incidenteRepository
+ * Ajustado al schema.prisma del equipo:
+ * - campo: fecha (no fechaOcurrencia)
+ * - relación: registradoPor (no reportadoPor, no atendidoPor)
+ * - TipoIncidente: CONFLICTO | AGRESION_FISICA | AGRESION_VERBAL | ACOSO | DANO_MATERIAL
+ * - sin método cambiarEstado (el estado pertenece a Caso, no a Incidente)
  */
 
 jest.mock('../src/prismaClient', () => ({
@@ -15,7 +18,7 @@ jest.mock('../src/prismaClient', () => ({
 }))
 
 const prisma = require('../src/prismaClient')
-const incidenteRepo = require('../src/repositories/IncidenteRepository')
+const incidenteRepo = require('../src/repositories/incidenteRepository')
 
 // ── Datos de prueba ──────────────────────────────────────────────────────────
 
@@ -23,23 +26,17 @@ const funcionarioMock = {
   id: 10,
   nombres: 'María',
   apellidos: 'Torres',
-  cargo: 'Inspectora',
+  cargo: 'INSPECTOR',
 }
 
 const incidenteMock = {
   id: 1,
-  tipo: 'BULLYING',
+  tipo: 'ACOSO',
   gravedad: 'MODERADO',
-  estado: 'ABIERTO',
-  descripcion: 'Grupo de estudiantes acosa sistemáticamente a un compañero en el recreo.',
-  lugar: 'Patio central',
-  fechaOcurrencia: new Date('2024-05-10T10:30:00'),
-  accioesTomadas: null,
-  observaciones: null,
-  reportadoPorId: 10,
-  atendidoPorId: null,
-  reportadoPor: funcionarioMock,
-  atendidoPor: null,
+  descripcion: 'Grupo de estudiantes acosa a un compañero en el recreo.',
+  fecha: new Date('2024-05-10T10:30:00'),
+  registradoPorId: 10,
+  registradoPor: funcionarioMock,
   involucrados: [],
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -58,20 +55,18 @@ describe('IncidenteRepository', () => {
       prisma.incidente.create.mockResolvedValue(incidenteMock)
 
       const input = {
-        tipo: 'BULLYING',
+        tipo: 'ACOSO',
         gravedad: 'MODERADO',
-        descripcion: 'Grupo de estudiantes acosa sistemáticamente a un compañero en el recreo.',
-        lugar: 'Patio central',
-        fechaOcurrencia: new Date('2024-05-10T10:30:00'),
-        reportadoPorId: 10,
+        descripcion: 'Grupo de estudiantes acosa a un compañero en el recreo.',
+        fecha: new Date('2024-05-10T10:30:00'),
+        registradoPorId: 10,
       }
 
       const resultado = await incidenteRepo.create(input)
 
       expect(prisma.incidente.create).toHaveBeenCalledWith({ data: input })
-      expect(resultado.tipo).toBe('BULLYING')
+      expect(resultado.tipo).toBe('ACOSO')
       expect(resultado.gravedad).toBe('MODERADO')
-      expect(resultado.estado).toBe('ABIERTO')
     })
   })
 
@@ -86,11 +81,10 @@ describe('IncidenteRepository', () => {
         where: { id: 1 },
         include: {
           involucrados: { include: { estudiante: true } },
-          reportadoPor: true,
-          atendidoPor: true,
+          registradoPor: true,
         },
       })
-      expect(resultado.reportadoPor).toEqual(funcionarioMock)
+      expect(resultado.registradoPor).toEqual(funcionarioMock)
     })
 
     it('debe retornar null cuando el incidente no existe', async () => {
@@ -104,17 +98,17 @@ describe('IncidenteRepository', () => {
 
   // ── FIND BY TIPO ───────────────────────────────────────────────────────────
   describe('findByTipo()', () => {
-    it('debe filtrar incidentes por tipo BULLYING', async () => {
+    it('debe filtrar incidentes por tipo ACOSO', async () => {
       prisma.incidente.findMany.mockResolvedValue([incidenteMock])
 
-      const resultado = await incidenteRepo.findByTipo('BULLYING')
+      const resultado = await incidenteRepo.findByTipo('ACOSO')
 
       expect(prisma.incidente.findMany).toHaveBeenCalledWith({
-        where: { tipo: 'BULLYING' },
-        orderBy: { fechaOcurrencia: 'desc' },
+        where: { tipo: 'ACOSO' },
+        orderBy: { fecha: 'desc' },
       })
       expect(resultado).toHaveLength(1)
-      expect(resultado[0].tipo).toBe('BULLYING')
+      expect(resultado[0].tipo).toBe('ACOSO')
     })
   })
 
@@ -130,32 +124,20 @@ describe('IncidenteRepository', () => {
     })
   })
 
-  // ── CAMBIAR ESTADO ─────────────────────────────────────────────────────────
-  describe('cambiarEstado()', () => {
-    it('debe cambiar el estado de un incidente a EN_PROCESO', async () => {
-      const enProceso = { ...incidenteMock, estado: 'EN_PROCESO' }
-      prisma.incidente.update.mockResolvedValue(enProceso)
+  // ── UPDATE ─────────────────────────────────────────────────────────────────
+  describe('update()', () => {
+    it('debe actualizar la descripción de un incidente', async () => {
+      const nuevaDesc = 'Descripción actualizada tras investigación.'
+      const actualizado = { ...incidenteMock, descripcion: nuevaDesc }
+      prisma.incidente.update.mockResolvedValue(actualizado)
 
-      const resultado = await incidenteRepo.cambiarEstado(1, 'EN_PROCESO')
+      const resultado = await incidenteRepo.update(1, { descripcion: nuevaDesc })
 
       expect(prisma.incidente.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { estado: 'EN_PROCESO' },
+        data: { descripcion: nuevaDesc },
       })
-      expect(resultado.estado).toBe('EN_PROCESO')
-    })
-  })
-
-  // ── UPDATE ─────────────────────────────────────────────────────────────────
-  describe('update()', () => {
-    it('debe actualizar las acciones tomadas de un incidente', async () => {
-      const accion = 'Se citó a los apoderados involucrados.'
-      const actualizado = { ...incidenteMock, accioesTomadas: accion }
-      prisma.incidente.update.mockResolvedValue(actualizado)
-
-      const resultado = await incidenteRepo.update(1, { accioesTomadas: accion })
-
-      expect(resultado.accioesTomadas).toBe(accion)
+      expect(resultado.descripcion).toBe(nuevaDesc)
     })
   })
 

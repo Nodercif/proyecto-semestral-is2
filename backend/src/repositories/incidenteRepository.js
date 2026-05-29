@@ -2,7 +2,7 @@ const prisma = require('../prismaClient')
 
 /**
  * Repositorio para la entidad Incidente.
- * Encapsula todas las operaciones de persistencia sobre la tabla `Incidente`.
+ * Campos según schema.prisma: fecha, descripcion, tipo, gravedad, registradoPorId
  */
 class IncidenteRepository {
   async create(data) {
@@ -14,8 +14,7 @@ class IncidenteRepository {
       where: { id },
       include: {
         involucrados: { include: { estudiante: true } },
-        reportadoPor: true,
-        atendidoPor: true,
+        registradoPor: true,
       },
     })
   }
@@ -24,31 +23,23 @@ class IncidenteRepository {
     return prisma.incidente.findMany({
       include: {
         involucrados: { include: { estudiante: true } },
-        reportadoPor: true,
-        atendidoPor: true,
+        registradoPor: true,
       },
-      orderBy: { fechaOcurrencia: 'desc' },
+      orderBy: { fecha: 'desc' },
     })
   }
 
   async findByTipo(tipo) {
     return prisma.incidente.findMany({
       where: { tipo },
-      orderBy: { fechaOcurrencia: 'desc' },
+      orderBy: { fecha: 'desc' },
     })
   }
 
   async findByGravedad(gravedad) {
     return prisma.incidente.findMany({
       where: { gravedad },
-      orderBy: { fechaOcurrencia: 'desc' },
-    })
-  }
-
-  async findByEstado(estado) {
-    return prisma.incidente.findMany({
-      where: { estado },
-      orderBy: { fechaOcurrencia: 'desc' },
+      orderBy: { fecha: 'desc' },
     })
   }
 
@@ -57,18 +48,14 @@ class IncidenteRepository {
       where: { involucrados: { some: { estudianteId } } },
       include: {
         involucrados: { include: { estudiante: true } },
-        reportadoPor: true,
+        registradoPor: true,
       },
-      orderBy: { fechaOcurrencia: 'desc' },
+      orderBy: { fecha: 'desc' },
     })
   }
 
   async update(id, data) {
     return prisma.incidente.update({ where: { id }, data })
-  }
-
-  async cambiarEstado(id, estado) {
-    return prisma.incidente.update({ where: { id }, data: { estado } })
   }
 
   async delete(id) {

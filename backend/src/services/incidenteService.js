@@ -1,14 +1,12 @@
 const incidenteRepository = require('../repositories/incidenteRepository')
 
-// Valores permitidos según el schema.prisma
+// Valores permitidos según el schema.prisma del equipo
 const TIPOS_VALIDOS = [
+  'CONFLICTO',
   'AGRESION_FISICA',
   'AGRESION_VERBAL',
-  'BULLYING',
-  'CIBERBULLYING',
+  'ACOSO',
   'DANO_MATERIAL',
-  'CONDUCTA_DISRUPTIVA',
-  'OTRO',
 ]
 
 const GRAVEDADES_VALIDAS = ['LEVE', 'MODERADO', 'GRAVE', 'MUY_GRAVE']
@@ -36,18 +34,14 @@ function validarDatosIncidente(datos) {
     errores.push('El campo "descripcion" es obligatorio.')
   }
 
-  if (!datos.lugar || datos.lugar.trim() === '') {
-    errores.push('El campo "lugar" es obligatorio.')
+  if (!datos.fecha) {
+    errores.push('El campo "fecha" es obligatorio.')
+  } else if (isNaN(new Date(datos.fecha).getTime())) {
+    errores.push('El campo "fecha" debe ser una fecha válida (ISO 8601).')
   }
 
-  if (!datos.fechaOcurrencia) {
-    errores.push('El campo "fechaOcurrencia" es obligatorio.')
-  } else if (isNaN(new Date(datos.fechaOcurrencia).getTime())) {
-    errores.push('El campo "fechaOcurrencia" debe ser una fecha válida (ISO 8601).')
-  }
-
-  if (!datos.reportadoPorId) {
-    errores.push('El campo "reportadoPorId" es obligatorio.')
+  if (!datos.registradoPorId) {
+    errores.push('El campo "registradoPorId" es obligatorio.')
   }
 
   return errores
@@ -73,10 +67,8 @@ async function registrarIncidente(datos) {
     tipo: datos.tipo,
     gravedad: datos.gravedad,
     descripcion: datos.descripcion.trim(),
-    lugar: datos.lugar.trim(),
-    fechaOcurrencia: new Date(datos.fechaOcurrencia),
-    reportadoPorId: Number(datos.reportadoPorId),
-    ...(datos.observaciones && { observaciones: datos.observaciones.trim() }),
+    fecha: new Date(datos.fecha),
+    registradoPorId: Number(datos.registradoPorId),
   }
 
   return incidenteRepository.create(nuevoIncidente)
