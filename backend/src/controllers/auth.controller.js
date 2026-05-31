@@ -3,7 +3,7 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import prisma from '../../backend/src/config/prisma.js';
+import prisma from '../config/prisma.js';
 
 /**
  * POST /auth/login
