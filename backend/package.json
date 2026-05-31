@@ -1,33 +1,29 @@
 {
-  "name": "convivencia-escolar",
+  "name": "convivencia-escolar-backend",
   "version": "1.0.0",
-  "description": "Sistema de Gestión de Convivencia Escolar — IS2 Equipo 02",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "test": "vitest run",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest --runInBand --forceExit",
+    "test:coverage": "jest --coverage --runInBand --forceExit",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0",
-    "bcryptjs": "^3.0.3",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.0.0"
+    "@prisma/client": "^5.10.0",
+    "express": "^4.18.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.9.1",
-    "@types/supertest": "^7.2.0",
-    "supertest": "^7.2.2",
-    "tsx": "^4.0.0",
-    "vitest": "^4.1.7"
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
+    "prisma": "^5.10.0",
+    "supertest": "^7.2.2"
   },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }
