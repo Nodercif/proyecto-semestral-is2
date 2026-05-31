@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { PrismaClient, RolSistema, TipoIncidente, NivelGravedad, RolInvolucrado, TipoAccion, EstadoCaso } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -40,39 +41,41 @@ async function main() {
   ])
   console.log('Funcionarios creados')
 
+  // Hash de contraseña real (todos usan la misma para pruebas)
+  // Contraseña: Admin1234!
   // Usuarios
-  const PLACEHOLDER_HASH = '$2b$10$placeholder_reemplazar_con_bcrypt_real'
+  const passwordHash = await bcrypt.hash('Admin1234!', 10)
 
   await Promise.all([
     prisma.usuario.upsert({
       where: { email: 'gabriela.munoz@colegio.cl' },
-      update: {},
-      create: { email: 'gabriela.munoz@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.ENCARGADO_CONVIVENCIA, funcionarioId: gabriela.id },
+      update: { passwordHash },
+      create: { email: 'gabriela.munoz@colegio.cl', passwordHash, rol: RolSistema.ENCARGADO_CONVIVENCIA, funcionarioId: gabriela.id },
     }),
     prisma.usuario.upsert({
       where: { email: 'carlos.martinez@colegio.cl' },
-      update: {},
-      create: { email: 'carlos.martinez@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.DOCENTE, funcionarioId: carlos.id },
+      update: { passwordHash },
+      create: { email: 'carlos.martinez@colegio.cl', passwordHash, rol: RolSistema.DOCENTE, funcionarioId: carlos.id },
     }),
     prisma.usuario.upsert({
       where: { email: 'beatriz.rojas@colegio.cl' },
-      update: {},
-      create: { email: 'beatriz.rojas@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.INSPECTOR, funcionarioId: beatriz.id },
+      update: { passwordHash },
+      create: { email: 'beatriz.rojas@colegio.cl', passwordHash, rol: RolSistema.INSPECTOR, funcionarioId: beatriz.id },
     }),
     prisma.usuario.upsert({
       where: { email: 'diego.herrera@colegio.cl' },
-      update: {},
-      create: { email: 'diego.herrera@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.ORIENTADOR, funcionarioId: diego.id },
+      update: { passwordHash },
+      create: { email: 'diego.herrera@colegio.cl', passwordHash, rol: RolSistema.ORIENTADOR, funcionarioId: diego.id },
     }),
     prisma.usuario.upsert({
       where: { email: 'elena.castro@colegio.cl' },
-      update: {},
-      create: { email: 'elena.castro@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.EQUIPO_DIRECTIVO, funcionarioId: elena.id },
+      update: { passwordHash },
+      create: { email: 'elena.castro@colegio.cl', passwordHash, rol: RolSistema.EQUIPO_DIRECTIVO, funcionarioId: elena.id },
     }),
     prisma.usuario.upsert({
       where: { email: 'admin@colegio.cl' },
-      update: {},
-      create: { email: 'admin@colegio.cl', passwordHash: PLACEHOLDER_HASH, rol: RolSistema.ADMINISTRADOR, funcionarioId: roberto.id },
+      update: { passwordHash },
+      create: { email: 'admin@colegio.cl', passwordHash, rol: RolSistema.ADMINISTRADOR, funcionarioId: roberto.id },
     }),
   ])
   console.log('Usuarios creados')
