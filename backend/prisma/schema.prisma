@@ -7,18 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────
-// Enumeraciones del dominio
-// ─────────────────────────────────────────
-
 enum TipoIncidente {
+  CONFLICTO
   AGRESION_FISICA
   AGRESION_VERBAL
-  BULLYING
-  CIBERBULLYING
+  ACOSO
   DANO_MATERIAL
-  CONDUCTA_DISRUPTIVA
-  OTRO
 }
 
 enum NivelGravedad {
@@ -28,97 +22,128 @@ enum NivelGravedad {
   MUY_GRAVE
 }
 
-enum EstadoIncidente {
+enum EstadoCaso {
   ABIERTO
-  EN_PROCESO
+  EN_SEGUIMIENTO
   RESUELTO
   CERRADO
+  DERIVADO
+}
+
+enum RolSistema {
+  ADMINISTRADOR
+  ENCARGADO_CONVIVENCIA
+  DOCENTE
+  INSPECTOR
+  ORIENTADOR
+  EQUIPO_DIRECTIVO
 }
 
 enum RolInvolucrado {
-  AGRESOR
-  VICTIMA
+  AFECTADO
+  RESPONSABLE
   TESTIGO
+  INTERVINIENTE
 }
 
-enum Genero {
-  MASCULINO
-  FEMENINO
-  OTRO
-  PREFIERE_NO_INDICAR
+enum TipoAccion {
+  CITACION
+  DERIVACION_ORIENTACION
+  ENTREVISTA
+  DERIVACION_PSICOLOGO
 }
-
-// ─────────────────────────────────────────
-// Entidades principales
-// ─────────────────────────────────────────
 
 model Estudiante {
-  id              Int           @id @default(autoincrement())
-  rut             String        @unique
-  nombres         String
-  apellidos       String
-  fechaNacimiento DateTime
-  genero          Genero
-  curso           String        // Ej: "3°A", "4°B"
-  nivel           String        // Ej: "Básica", "Media"
-  anioIngreso     Int
-  activo          Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  involucrados    Involucrado[]
+  id           Int           @id @default(autoincrement())
+  rut          String        @unique
+  nombres      String
+  apellidos    String
+  curso        String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  involucrados Involucrado[]
 }
 
 model FuncionarioInstitucional {
-  id              Int           @id @default(autoincrement())
-  rut             String        @unique
-  nombres         String
-  apellidos       String
-  cargo           String        // Ej: "Inspector", "Orientador", "Director"
-  correo          String        @unique
-  telefono        String?
-  activo          Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                       Int           @id @default(autoincrement())
+  rut                      String        @unique
+  nombres                  String
+  apellidos                String
+  cargo                    RolSistema
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  usuario                  Usuario?
+  incidentesRegistrados    Incidente[]
+  intervencionesRealizadas Involucrado[] @relation("IntervinienteFuncionario")
+}
 
-  incidentesReportados  Incidente[]   @relation("ReportadoPor")
-  incidentesAtendidos   Incidente[]   @relation("AtendidoPor")
+model Usuario {
+  id            Int                      @id @default(autoincrement())
+  email         String                   @unique
+  passwordHash  String
+  rol           RolSistema
+  activo        Boolean                  @default(true)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  funcionarioId Int                      @unique
+  funcionario   FuncionarioInstitucional @relation(fields: [funcionarioId], references: [id])
 }
 
 model Incidente {
   id              Int                      @id @default(autoincrement())
+  fecha           DateTime
+  descripcion     String
   tipo            TipoIncidente
   gravedad        NivelGravedad
-  estado          EstadoIncidente          @default(ABIERTO)
-  descripcion     String
-  lugar           String
-  fechaOcurrencia DateTime
-  accioesTomadas  String?
-  observaciones   String?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
-
-  reportadoPorId  Int
-  reportadoPor    FuncionarioInstitucional @relation("ReportadoPor", fields: [reportadoPorId], references: [id])
-
-  atendidoPorId   Int?
-  atendidoPor     FuncionarioInstitucional? @relation("AtendidoPor", fields: [atendidoPorId], references: [id])
-
+  registradoPorId Int
+  registradoPor   FuncionarioInstitucional @relation(fields: [registradoPorId], references: [id])
   involucrados    Involucrado[]
+  casoIncidentes  CasoIncidente[]
 }
 
 model Involucrado {
-  id            Int            @id @default(autoincrement())
-  rol           RolInvolucrado
-  descripcion   String?        // Detalle del rol en el incidente específico
+  id                         Int                       @id @default(autoincrement())
+  rol                        RolInvolucrado
+  observacion                String?
+  createdAt                  DateTime                  @default(now())
+  estudianteId               Int
+  estudiante                 Estudiante                @relation(fields: [estudianteId], references: [id])
+  incidenteId                Int
+  incidente                  Incidente                 @relation(fields: [incidenteId], references: [id])
+  funcionarioIntervinienteId Int?
+  funcionarioInterviniente   FuncionarioInstitucional? @relation("IntervinienteFuncionario", fields: [funcionarioIntervinienteId], references: [id])
 
-  incidenteId   Int
-  incidente     Incidente      @relation(fields: [incidenteId], references: [id], onDelete: Cascade)
+  @@unique([estudianteId, incidenteId, rol])
+}
 
-  estudianteId  Int
-  estudiante    Estudiante     @relation(fields: [estudianteId], references: [id])
+model Caso {
+  id             Int                  @id @default(autoincrement())
+  titulo         String
+  estado         EstadoCaso           @default(ABIERTO)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  casoIncidentes CasoIncidente[]
+  acciones       AccionIntervencion[]
+}
 
-  createdAt     DateTime       @default(now())
+model CasoIncidente {
+  casoId      Int
+  incidenteId Int
+  asignadoEn  DateTime  @default(now())
+  caso        Caso      @relation(fields: [casoId], references: [id])
+  incidente   Incidente @relation(fields: [incidenteId], references: [id])
 
-  @@unique([incidenteId, estudianteId]) // Un estudiante no puede tener dos roles en el mismo incidente
+  @@id([casoId, incidenteId])
+}
+
+model AccionIntervencion {
+  id          Int        @id @default(autoincrement())
+  tipo        TipoAccion
+  descripcion String?
+  fecha       DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  casoId      Int
+  caso        Caso       @relation(fields: [casoId], references: [id])
 }
