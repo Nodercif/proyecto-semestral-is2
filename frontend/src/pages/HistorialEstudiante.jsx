@@ -110,9 +110,7 @@ export default function HistorialEstudiante() {
               }}>
                 <p style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{resultado.totalIncidentes}</p>
                 <p style={{ fontSize: 11 }}>incidente(s)</p>
-                {resultado.totalIncidentes >= 2 && (
-                  <p style={{ fontSize: 10, marginTop: 4 }}>⚠ Reincidencia</p>
-                )}
+                
               </div>
             </div>
           </div>
