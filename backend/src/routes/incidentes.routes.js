@@ -1,9 +1,12 @@
+
 import { Router } from 'express';
 
-import authenticate from '../../backend/src/middlewares/authenticate.js';
-import { authorize, ROLES } from '../../backend/src/middlewares/authorize.js';
-
+import authenticate from '../middlewares/authenticate.js';
+import { authorize, ROLES } from '../middlewares/authorize.js';
 const router = Router();
+
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
 
 // ── Aplicar autenticación a TODAS las rutas ────────────────────────────────
 router.use(authenticate);
@@ -27,12 +30,20 @@ router.post(
     ROLES.ORIENTADOR,
     ROLES.EQUIPO_DIRECTIVO
   ),
-  (req, res) => {
-    res.status(201).json({
-      message: 'Incidente creado (stub)',
-    });
+  async (req, res) => {
+    const { fecha, descripcion, tipo, gravedad } = req.body
+    const registradoPorId = req.usuario.funcionarioId  // viene del token JWT
+    try {
+      const incidente = await prisma.incidente.create({
+        data: { fecha: new Date(fecha), descripcion, tipo, gravedad, registradoPorId }
+      })
+      res.status(201).json(incidente)
+    } catch (error) {
+      console.error('Error al crear incidente:', error)
+      res.status(500).json({ error: 'Error al crear el incidente' })
+    }
   }
-);
+)
 
 // ── DELETE /incidentes/:id ────────────────────────────────────────────────
 router.delete(

@@ -5,6 +5,7 @@ import prisma from './config/prisma.js';
 import authRoutes from './routes/auth.routes.js';
 import incidentesRoutes from './routes/incidentes.routes.js';
 import involucradosRoutes from './routes/involucrados.routes.js';
+import estudiantesRoutes from './routes/estudiantes.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +23,8 @@ app.get('/health', (req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/incidentes', incidentesRoutes);
-app.use('/involucrados', involucradosRoutes);
+app.use('/incidentes', involucradosRoutes);
+app.use('/estudiantes', estudiantesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

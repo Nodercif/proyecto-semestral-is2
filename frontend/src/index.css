@@ -13,8 +13,8 @@
   --danger:      #991b1b;
   --text:        #1a1418;
   --muted:       #6b6470;
-  --font-body:   'Nunito', sans-serif;
-  --font-head:   'Playfair Display', serif;
+  --font-body:   'Inter', sans-serif;
+  --font-head:   'Bebas Neue', sans-serif;
   --radius:      10px;
   --shadow:      0 2px 12px rgba(107,31,42,0.07);
   --shadow-md:   0 4px 24px rgba(107,31,42,0.12);
@@ -108,7 +108,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .badge-testigo       { background: #f3e8ff; color: #6b21a8; }
 .badge-interviniente { background: #d1fae5; color: #065f46; }
 
-label { font-size: 13px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+label { font-size: 13px; color: var(--muted); font-weight: 500; display: block; margin-bottom: 6px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .error-msg { color: var(--danger); font-size: 13px; }
