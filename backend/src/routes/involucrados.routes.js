@@ -35,8 +35,7 @@ router.post(
   '/:id/involucrados',
   authorize(
     ROLES.ADMINISTRADOR,
-    ROLES.ENCARGADO_CONVIVENCIA,
-    ROLES.INSPECTOR
+    ROLES.ENCARGADO_CONVIVENCIA
   ),
   async (req, res) => {
     const { default: prismaClient } = await import('../config/prisma.js')
