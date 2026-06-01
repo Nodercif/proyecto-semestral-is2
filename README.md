@@ -173,7 +173,7 @@ npm run preview  # Previsualizar build
 
 | Nombre | GitHub |
 |---|---|
-| Diego Alday Cortés | @usuario |
+| Diego Alday Cortés | @BUG25 |
 | Ignacio Jara Valdebenito | @ignacioj049 |
 | Gabriela Muñoz Castillo | @Nodercif |
 | Bastián Zapata | @usuario |
