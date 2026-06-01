@@ -175,5 +175,5 @@ npm run preview  # Previsualizar build
 |---|---|
 | Diego Alday Cortés | @usuario |
 | Ignacio Jara Valdebenito | @ignacioj049 |
-| Gabriela Muñoz Castillo | @usuario |
-| Bastián Zapata | @Nodercif |
+| Gabriela Muñoz Castillo | @Nodercif |
+| Bastián Zapata | @usuario |
