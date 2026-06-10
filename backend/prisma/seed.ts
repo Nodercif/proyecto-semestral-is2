@@ -82,12 +82,12 @@ async function main() {
 
   // Estudiantes
   const [martin, sofia, joaquin, valentina, sebastian, camila] = await Promise.all([
-    prisma.estudiante.upsert({ where: { rut: '11111111-1' }, update: {}, create: { rut: '11111111-1', nombres: 'Martín',    apellidos: 'Alvarado Torres',  curso: '1°A' } }),
-    prisma.estudiante.upsert({ where: { rut: '22222222-2' }, update: {}, create: { rut: '22222222-2', nombres: 'Sofía',     apellidos: 'Becerra Núñez',    curso: '1°A' } }),
-    prisma.estudiante.upsert({ where: { rut: '33333333-3' }, update: {}, create: { rut: '33333333-3', nombres: 'Joaquín',   apellidos: 'Contreras Ríos',   curso: '2°B' } }),
-    prisma.estudiante.upsert({ where: { rut: '44444444-4' }, update: {}, create: { rut: '44444444-4', nombres: 'Valentina', apellidos: 'Díaz Morales',     curso: '2°B' } }),
-    prisma.estudiante.upsert({ where: { rut: '55555555-5' }, update: {}, create: { rut: '55555555-5', nombres: 'Sebastián', apellidos: 'Espinoza Aguilar', curso: '3°C' } }),
-    prisma.estudiante.upsert({ where: { rut: '66666666-6' }, update: {}, create: { rut: '66666666-6', nombres: 'Camila',    apellidos: 'Flores Pizarro',   curso: '3°C' } }),
+    prisma.estudiante.upsert({ where: { rut: '11111111-1' }, update: {}, create: { rut: '11111111-1', nombres: 'Martín',    apellidos: 'Alvarado Torres',  curso: '1° Medio A' } }),
+    prisma.estudiante.upsert({ where: { rut: '22222222-2' }, update: {}, create: { rut: '22222222-2', nombres: 'Sofía',     apellidos: 'Becerra Núñez',    curso: '1° Medio A' } }),
+    prisma.estudiante.upsert({ where: { rut: '33333333-3' }, update: {}, create: { rut: '33333333-3', nombres: 'Joaquín',   apellidos: 'Contreras Ríos',   curso: '2° Medio B' } }),
+    prisma.estudiante.upsert({ where: { rut: '44444444-4' }, update: {}, create: { rut: '44444444-4', nombres: 'Valentina', apellidos: 'Díaz Morales',     curso: '2° Medio B' } }),
+    prisma.estudiante.upsert({ where: { rut: '55555555-5' }, update: {}, create: { rut: '55555555-5', nombres: 'Sebastián', apellidos: 'Espinoza Aguilar', curso: '3° Medio C' } }),
+    prisma.estudiante.upsert({ where: { rut: '66666666-6' }, update: {}, create: { rut: '66666666-6', nombres: 'Camila',    apellidos: 'Flores Pizarro',   curso: '3° Medio C' } }),
   ])
   console.log('Estudiantes creados')
 
