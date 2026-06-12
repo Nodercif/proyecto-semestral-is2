@@ -26,4 +26,7 @@ export const agregarInvolucrado = (incidenteId, data) =>
 export const getHistorialEstudiante = (estudianteId, params = {}) =>
   api.get(`/estudiantes/${estudianteId}/incidentes`, { params })
 
+export const getHistorialCurso = (curso, params = {}) =>
+  api.get(`/estudiantes/curso/${encodeURIComponent(curso)}/incidentes`, { params })
+
 export default api
