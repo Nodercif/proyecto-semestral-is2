@@ -10,6 +10,19 @@ export default function Layout() {
     navigate('/login')
   }
 
+  const esEncargado = usuario?.rol === 'ENCARGADO_CONVIVENCIA'
+
+  const links = [
+    // Solo encargado de convivencia
+    ...(esEncargado ? [
+      { to: '/incidentes/nuevo', label: 'Registrar Incidente', icon: '＋' },
+      { to: '/casos/nuevo',      label: 'Registrar Caso',    icon: '＋' },
+    ] : []),
+    // Todos los roles
+    { to: '/estudiantes/historial', label: 'Ver Incidentes', icon: '⌕' },
+    { to: '/casos',                 label: 'Ver Casos',      icon: '⌕' },
+  ]
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <aside style={{
@@ -34,10 +47,7 @@ export default function Layout() {
         </div>
 
         <nav style={{ flex: 1, padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[
-            { to: '/incidentes/nuevo', label: 'Registrar Incidente', icon: '＋' },
-            { to: '/estudiantes/historial', label: 'Historial Estudiante', icon: '⌕' },
-          ].map(({ to, label, icon }) => (
+          {links.map(({ to, label, icon }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 12px', borderRadius: 8,
@@ -55,17 +65,24 @@ export default function Layout() {
 
         <div style={{ padding: '18px 22px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
           {usuario && (
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 10, wordBreak: 'break-all', fontFamily: 'var(--font-body)' }}>
-              {usuario.email}
-            </div>
+            <>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4, wordBreak: 'break-all', fontFamily: 'var(--font-body)' }}>
+                {usuario.email}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 10, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {usuario.rol?.replace(/_/g, ' ')}
+              </div>
+            </>
           )}
-          <button onClick={handleLogout} style={{
-            width: '100%', fontSize: 13, padding: '9px',
-            background: 'rgba(255,255,255,0.12)',
-            color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
-            fontFamily: 'var(--font-body)', fontWeight: 600
-          }}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', fontSize: 13, padding: '9px',
+              background: 'rgba(255,255,255,0.12)',
+              color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+              fontFamily: 'var(--font-body)', fontWeight: 600
+            }}
             onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.2)'}
             onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.12)'}
           >
