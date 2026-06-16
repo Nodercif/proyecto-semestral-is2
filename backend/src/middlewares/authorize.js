@@ -1,11 +1,6 @@
-// src/middleware/authorize.js
+// src/middlewares/authorize.js
+// Verifica que el usuario autenticado tenga uno de los roles permitidos
 
-// Middleware de autorización por roles – usa el payload del JWT ya verificado
-
-/**
- * Roles válidos del sistema
- * (deben coincidir con el enum RolSistema en BD)
- */
 export const ROLES = {
   ADMINISTRADOR: 'ADMINISTRADOR',
   ENCARGADO_CONVIVENCIA: 'ENCARGADO_CONVIVENCIA',
@@ -16,18 +11,11 @@ export const ROLES = {
 };
 
 /**
- * Factory de middleware de autorización.
- *
- * Uso:
- * authorize('ADMINISTRADOR', 'ENCARGADO_CONVIVENCIA')
- *
- * IMPORTANTE: debe usarse DESPUÉS de authenticate.
- *
- * @param  {...string} rolesPermitidos
+ * Middleware de autorización por rol.
+ * Uso: authorize(ROLES.INSPECTOR, ROLES.ADMINISTRADOR)
  */
 export const authorize = (...rolesPermitidos) => {
   return (req, res, next) => {
-    // authenticate ya debió ejecutarse antes
     if (!req.usuario) {
       return res.status(401).json({
         error: 'Unauthorized',
@@ -35,15 +23,13 @@ export const authorize = (...rolesPermitidos) => {
       });
     }
 
-    const rolUsuario = req.usuario.rol;
-
-    if (!rolesPermitidos.includes(rolUsuario)) {
+    if (!rolesPermitidos.includes(req.usuario.rol)) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: `Acceso denegado. Se requiere uno de los siguientes roles: ${rolesPermitidos.join(', ')}.`,
+        message: 'No tienes permisos para realizar esta acción.',
       });
     }
 
-    return next();
+    next();
   };
 };
