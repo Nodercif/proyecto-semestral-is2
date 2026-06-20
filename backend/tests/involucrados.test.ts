@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
-import app from '../app'
-import { prismaMock, Prisma } from '../__mocks__/@prisma/client'
+import app from '../src/app'
+import { prismaMock, Prisma } from '../src/__mocks__/@prisma/client'
 
 // NO se llama vi.mock() — el alias en vitest.config ya redirige @prisma/client al mock
 
