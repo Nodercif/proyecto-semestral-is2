@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes.js';
 import incidentesRoutes from './routes/incidentes.routes.js';
 import involucradosRoutes from './routes/involucrados.routes.js';
 import estudiantesRoutes from './routes/estudiantes.routes.js';
+import casosRoutes from './routes/casos.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +26,7 @@ app.use('/auth', authRoutes);
 app.use('/incidentes', incidentesRoutes);
 app.use('/incidentes', involucradosRoutes);
 app.use('/estudiantes', estudiantesRoutes);
+app.use('/casos', casosRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -51,7 +53,6 @@ if (process.env.NODE_ENV !== 'test') {
   server = app.listen(PORT, async () => {
     try {
       await prisma.$connect();
-
       console.log(`Servidor activo en puerto ${PORT}`);
     } catch (error) {
       console.error(error);

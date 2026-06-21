@@ -1,12 +1,8 @@
-const prisma = require('../prismaClient')
+import prisma from '../prismaClient.js';
 
-/**
- * Repositorio para la entidad Incidente.
- * Campos según schema.prisma: fecha, descripcion, tipo, gravedad, registradoPorId
- */
 class IncidenteRepository {
   async create(data) {
-    return prisma.incidente.create({ data })
+    return prisma.incidente.create({ data });
   }
 
   async findById(id) {
@@ -16,7 +12,7 @@ class IncidenteRepository {
         involucrados: { include: { estudiante: true } },
         registradoPor: true,
       },
-    })
+    });
   }
 
   async findAll() {
@@ -26,21 +22,21 @@ class IncidenteRepository {
         registradoPor: true,
       },
       orderBy: { fecha: 'desc' },
-    })
+    });
   }
 
   async findByTipo(tipo) {
     return prisma.incidente.findMany({
       where: { tipo },
       orderBy: { fecha: 'desc' },
-    })
+    });
   }
 
   async findByGravedad(gravedad) {
     return prisma.incidente.findMany({
       where: { gravedad },
       orderBy: { fecha: 'desc' },
-    })
+    });
   }
 
   async findByEstudiante(estudianteId) {
@@ -51,16 +47,16 @@ class IncidenteRepository {
         registradoPor: true,
       },
       orderBy: { fecha: 'desc' },
-    })
+    });
   }
 
   async update(id, data) {
-    return prisma.incidente.update({ where: { id }, data })
+    return prisma.incidente.update({ where: { id }, data });
   }
 
   async delete(id) {
-    return prisma.incidente.delete({ where: { id } })
+    return prisma.incidente.delete({ where: { id } });
   }
 }
 
-module.exports = new IncidenteRepository()
+export default new IncidenteRepository();

@@ -25,7 +25,8 @@
     "prisma": "^5.10.0",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^4.1.9"
   },
   "prisma": {
     "seed": "node prisma/seed.ts"
