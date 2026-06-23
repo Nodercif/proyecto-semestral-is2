@@ -6,6 +6,7 @@ export const prismaMock = {
     findUnique: vi.fn(),
     findMany:   vi.fn(),
     create:     vi.fn(),
+    update:     vi.fn(),
   },
   estudiante: {
     findUnique: vi.fn(),
@@ -15,11 +16,15 @@ export const prismaMock = {
   involucrado: {
     findMany:   vi.fn(),
     create:     vi.fn(),
+    update:     vi.fn(),
     deleteMany: vi.fn(),
   },
   funcionarioInstitucional: {
     findUnique: vi.fn(),
   },
+  // Por defecto ejecuta el callback pasándole el propio prismaMock como "tx"
+  // (los métodos son los mismos, así que sirve para simular la transacción).
+  $transaction: vi.fn((callback: any) => callback(prismaMock)),
   $disconnect: vi.fn(),
 }
 

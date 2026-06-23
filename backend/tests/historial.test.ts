@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import request from 'supertest'
-import app from '../app'
-import { prismaMock } from '../__mocks__/@prisma/client'
+import app from '../src/app'
+import { prismaMock } from '../src/__mocks__/@prisma/client'
 
 const estudianteEj = { id: 1, nombres: 'Martín', apellidos: 'Alvarado Torres', curso: '1°A' }
 const involucradosEj = [
