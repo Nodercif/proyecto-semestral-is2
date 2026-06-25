@@ -22,12 +22,66 @@ const ROLES_INVOLUCRADO_VALIDOS = ['AFECTADO', 'RESPONSABLE', 'TESTIGO', 'INTERV
 router.use(authenticate);
 
 // ── GET /incidentes ────────────────────────────────────────────────────────
-router.get('/', (req, res) => {
-  res.json({
-    message: 'Listado de incidentes',
-    usuario: req.usuario,
-  });
-});
+// Lista incidentes con filtros opcionales por query params:
+// ?texto=, ?tipo=, ?gravedad=, ?desde=, ?hasta=
+router.get(
+  '/',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  async (req, res) => {
+    const { texto, tipo, gravedad, desde, hasta } = req.query
+    const where = {}
+
+    if (tipo) {
+      if (!TIPOS_VALIDOS.includes(tipo)) {
+        return res.status(400).json({ error: `El parámetro "tipo" debe ser uno de: ${TIPOS_VALIDOS.join(', ')}.` })
+      }
+      where.tipo = tipo
+    }
+
+    if (gravedad) {
+      if (!GRAVEDADES_VALIDAS.includes(gravedad)) {
+        return res.status(400).json({ error: `El parámetro "gravedad" debe ser uno de: ${GRAVEDADES_VALIDAS.join(', ')}.` })
+      }
+      where.gravedad = gravedad
+    }
+
+    if (texto) {
+      const idTexto = parseInt(texto, 10)
+      where.OR = [
+        { descripcion: { contains: texto, mode: 'insensitive' } },
+        ...(!isNaN(idTexto) ? [{ id: idTexto }] : []),
+      ]
+    }
+
+    if (desde || hasta) {
+      where.fecha = {}
+      if (desde) where.fecha.gte = new Date(desde)
+      if (hasta) where.fecha.lte = new Date(`${hasta}T23:59:59.999Z`)
+    }
+
+    try {
+      const incidentes = await prisma.incidente.findMany({
+        where,
+        include: {
+          involucrados: { include: { estudiante: true } },
+          registradoPor: true,
+        },
+        orderBy: { fecha: 'desc' },
+      })
+      res.status(200).json({ data: incidentes })
+    } catch (error) {
+      console.error('Error al listar incidentes:', error)
+      res.status(500).json({ error: 'Error al listar los incidentes.' })
+    }
+  }
+)
 
 // ── GET /incidentes/:id ─────────────────────────────────────────────────────
 // Devuelve el detalle completo de un incidente (incluye involucrados),

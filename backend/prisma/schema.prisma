@@ -121,6 +121,7 @@ model Involucrado {
 model Caso {
   id             Int                  @id @default(autoincrement())
   titulo         String
+  descripcion    String?
   estado         EstadoCaso           @default(ABIERTO)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt

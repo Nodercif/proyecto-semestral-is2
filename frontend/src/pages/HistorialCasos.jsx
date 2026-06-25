@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { getCasos, actualizarEstadoCaso } from '../services/api'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ESTADOS = ['ABIERTO', 'EN_SEGUIMIENTO', 'RESUELTO', 'CERRADO', 'DERIVADO']
-const TIPOS_ACCION = ['CITACION', 'DERIVACION_ORIENTACION', 'ENTREVISTA', 'DERIVACION_PSICOLOGO']
 
 const labelEstado = {
   ABIERTO:             'Abierto',
@@ -54,58 +54,16 @@ function BadgeEstado({ estado }) {
   )
 }
 
-// ─── Datos mock (reemplazar con llamada real a la API) ────────────────────────
-const CASOS_MOCK = [
-  {
-    id: 101,
-    titulo: 'Situación de acoso reiterado en 3°B',
-    descripcion: 'Estudiante reportado por múltiples compañeros y docente jefa de curso por conducta de acoso sostenida.',
-    estado: 'EN_SEGUIMIENTO',
-    creadoEn: '2026-05-12T08:00:00Z',
-    incidentes: [
-      { id: 2, tipo: 'ACOSO', gravedad: 'MUY_GRAVE', fecha: '2026-05-12T08:15:00Z', descripcion: 'Situación de acoso reiterado reportada por docente.' },
-      { id: 5, tipo: 'CONFLICTO', gravedad: 'MODERADO', fecha: '2026-05-20T11:00:00Z', descripcion: 'Conflicto entre grupos de estudiantes.' },
-    ],
-    acciones: [
-      { tipo: 'CITACION', descripcion: 'Citación al apoderado del responsable.', fecha: '2026-05-14' },
-      { tipo: 'DERIVACION_ORIENTACION', descripcion: 'Derivado a orientadora Sra. Pérez.', fecha: '2026-05-16' },
-    ],
-  },
-  {
-    id: 102,
-    titulo: 'Pelea en patio entre alumnos de 3°B',
-    descripcion: 'Pelea física durante el recreo. Ambos estudiantes presentaron lesiones menores.',
-    estado: 'ABIERTO',
-    creadoEn: '2026-05-10T10:30:00Z',
-    incidentes: [
-      { id: 1, tipo: 'AGRESION_FISICA', gravedad: 'GRAVE', fecha: '2026-05-10T10:30:00Z', descripcion: 'Pelea en el patio durante el recreo.' },
-    ],
-    acciones: [],
-  },
-  {
-    id: 103,
-    titulo: 'Daño a infraestructura sala 4°C',
-    descripcion: 'Rotura intencional de ventana durante horario de clases.',
-    estado: 'RESUELTO',
-    creadoEn: '2026-05-18T09:45:00Z',
-    incidentes: [
-      { id: 4, tipo: 'DANO_MATERIAL', gravedad: 'LEVE', fecha: '2026-05-18T09:45:00Z', descripcion: 'Rotura de ventana en sala de clases 4°C.' },
-    ],
-    acciones: [
-      { tipo: 'ENTREVISTA', descripcion: 'Entrevista con el estudiante y apoderado. Acuerdo de reparación.', fecha: '2026-05-19' },
-    ],
-  },
-]
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function HistorialCasos() {
   const [filtros, setFiltros] = useState({ estado: '', texto: '', desde: '', hasta: '' })
   const [resultados, setResultados] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [expandido, setExpandido] = useState(null) // id del caso expandido
-  const [editandoEstado, setEditandoEstado] = useState(null) // id del caso en edición
+  const [expandido, setExpandido] = useState(null)
+  const [editandoEstado, setEditandoEstado] = useState(null)
   const [nuevoEstado, setNuevoEstado] = useState('')
+  const [cambiandoEstado, setCambiandoEstado] = useState(false)
 
   const handleFiltroChange = e => setFiltros({ ...filtros, [e.target.name]: e.target.value })
 
@@ -115,23 +73,11 @@ export default function HistorialCasos() {
     setLoading(true)
     setExpandido(null)
     try {
-      // TODO: reemplazar con → await getCasos(filtros)
-      await new Promise(r => setTimeout(r, 500))
-      let datos = [...CASOS_MOCK]
-      if (filtros.estado)  datos = datos.filter(c => c.estado === filtros.estado)
-      if (filtros.texto) {
-        const q = filtros.texto.toLowerCase()
-        datos = datos.filter(c =>
-          String(c.id).includes(q) ||
-          c.titulo.toLowerCase().includes(q) ||
-          c.descripcion.toLowerCase().includes(q)
-        )
-      }
-      if (filtros.desde) datos = datos.filter(c => new Date(c.creadoEn) >= new Date(filtros.desde))
-      if (filtros.hasta) datos = datos.filter(c => new Date(c.creadoEn) <= new Date(filtros.hasta + 'T23:59:59'))
-      setResultados(datos)
+      const params = Object.fromEntries(Object.entries(filtros).filter(([, v]) => v !== ''))
+      const res = await getCasos(params)
+      setResultados(res.data.data || [])
     } catch (err) {
-      setError('Error al buscar los casos')
+      setError(err.response?.data?.error || 'Error al buscar los casos')
     } finally {
       setLoading(false)
     }
@@ -139,22 +85,26 @@ export default function HistorialCasos() {
 
   const handleCambiarEstado = async (casoId) => {
     if (!nuevoEstado) return
-    // TODO: await actualizarEstadoCaso(casoId, nuevoEstado)
-    setResultados(resultados.map(c =>
-      c.id === casoId ? { ...c, estado: nuevoEstado } : c
-    ))
-    setEditandoEstado(null)
-    setNuevoEstado('')
+    setCambiandoEstado(true)
+    setError('')
+    try {
+      const res = await actualizarEstadoCaso(casoId, nuevoEstado)
+      setResultados(resultados.map(c => (c.id === casoId ? res.data.data : c)))
+      setEditandoEstado(null)
+      setNuevoEstado('')
+    } catch (err) {
+      setError(err.response?.data?.errores?.[0] || err.response?.data?.error || 'Error al actualizar el estado')
+    } finally {
+      setCambiandoEstado(false)
+    }
   }
 
-  const toggleExpandido = (id) => {
-    setExpandido(expandido === id ? null : id)
-  }
+  const toggleExpandido = (id) => setExpandido(expandido === id ? null : id)
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
       <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 26, marginBottom: 6 }}>
-        Casos de Seguimiento
+        Ver Casos
       </h2>
       <p style={{ color: 'var(--muted)', marginBottom: 28, fontSize: 14 }}>
         Consulte y filtre los casos registrados en el sistema. Puede ver sus incidentes, acciones y actualizar el estado.
@@ -165,10 +115,10 @@ export default function HistorialCasos() {
         <form onSubmit={handleBuscar} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           <div className="form-group">
-            <label>Buscar por ID, título o descripción</label>
+            <label>Buscar por título o descripción</label>
             <input
               type="text" name="texto"
-              placeholder="Ej: acoso, 3°B, #101..."
+              placeholder="Ej: acoso, 3°B..."
               value={filtros.texto} onChange={handleFiltroChange}
             />
           </div>
@@ -209,7 +159,6 @@ export default function HistorialCasos() {
       {resultados !== null && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Contador */}
           <p style={{ fontSize: 13, color: 'var(--muted)' }}>
             {resultados.length === 0
               ? 'No se encontraron casos con los filtros aplicados.'
@@ -217,178 +166,193 @@ export default function HistorialCasos() {
             }
           </p>
 
-          {resultados.map(caso => (
-            <div key={caso.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {resultados.map(caso => {
+            // El backend devuelve casoIncidentes: [{ incidente: {...} }], lo desenvolvemos aquí
+            const incidentes = (caso.casoIncidentes || []).map(ci => ci.incidente)
+            const acciones = caso.acciones || []
 
-              {/* Cabecera del caso */}
-              <div
-                onClick={() => toggleExpandido(caso.id)}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                  gap: 12, padding: '18px 22px', cursor: 'pointer',
-                  borderBottom: expandido === caso.id ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>#{caso.id}</span>
-                    <BadgeEstado estado={caso.estado} />
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {new Date(caso.creadoEn).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, lineHeight: 1.4 }}>
-                    {caso.titulo}
-                  </p>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-                    {caso.descripcion}
-                  </p>
+            return (
+              <div key={caso.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
 
-                  {/* Resumen compacto */}
-                  <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      🗂 {caso.incidentes.length} incidente(s)
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      📋 {caso.acciones.length} acción(es)
-                    </span>
-                  </div>
-                </div>
-
-                <span style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0, marginTop: 4 }}>
-                  {expandido === caso.id ? '▲' : '▼'}
-                </span>
-              </div>
-
-              {/* Detalle expandido */}
-              {expandido === caso.id && (
-                <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                  {/* Incidentes asociados */}
-                  <div>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Incidentes asociados
+                {/* Cabecera del caso */}
+                <div
+                  onClick={() => toggleExpandido(caso.id)}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                    gap: 12, padding: '18px 22px', cursor: 'pointer',
+                    borderBottom: expandido === caso.id ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>#{caso.id}</span>
+                      <BadgeEstado estado={caso.estado} />
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        {new Date(caso.createdAt).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, lineHeight: 1.4 }}>
+                      {caso.titulo}
                     </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {caso.incidentes.map(inc => (
-                        <div key={inc.id} style={{
-                          display: 'flex', alignItems: 'flex-start', gap: 12,
-                          padding: '10px 14px', background: 'var(--surface2)',
-                          borderRadius: 8, border: '1px solid var(--border)',
-                        }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>#{inc.id}</span>
-                              <span className={`badge badge-${inc.gravedad.toLowerCase()}`}>
-                                {labelGravedad[inc.gravedad]}
-                              </span>
-                              <span style={{
-                                background: 'var(--surface)', color: 'var(--muted)',
-                                padding: '3px 10px', borderRadius: 20, fontSize: 12,
-                                border: '1px solid var(--border)',
-                              }}>
-                                {labelTipo[inc.tipo]}
-                              </span>
-                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                                {new Date(inc.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                            </div>
-                            <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
-                              {inc.descripcion}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                    {caso.descripcion && (
+                      <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                        {caso.descripcion}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        🗂 {incidentes.length} incidente(s)
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        📋 {acciones.length} acción(es)
+                      </span>
                     </div>
                   </div>
 
-                  {/* Acciones de intervención */}
-                  <div>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Acciones de intervención
-                    </p>
-                    {caso.acciones.length === 0 ? (
-                      <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
-                        Sin acciones registradas aún.
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {caso.acciones.map((ac, i) => (
-                          <div key={i} style={{
-                            display: 'flex', gap: 12, alignItems: 'flex-start',
-                            padding: '10px 14px', background: 'rgba(107,31,42,0.04)',
-                            borderRadius: 8, border: '1px solid rgba(107,31,42,0.1)',
-                          }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{
-                                  background: 'rgba(107,31,42,0.08)', color: 'var(--accent)',
-                                  border: '1px solid rgba(107,31,42,0.2)',
-                                  borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600,
-                                }}>
-                                  {labelAccion[ac.tipo]}
-                                </span>
-                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                                  {new Date(ac.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                              </div>
-                              <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
-                                {ac.descripcion}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <span style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0, marginTop: 4 }}>
+                    {expandido === caso.id ? '▲' : '▼'}
+                  </span>
+                </div>
 
-                  {/* Actualizar estado */}
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    paddingTop: 16, borderTop: '1px solid var(--border)',
-                  }}>
-                    {editandoEstado === caso.id ? (
-                      <>
-                        <select
-                          value={nuevoEstado}
-                          onChange={e => setNuevoEstado(e.target.value)}
-                          style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
-                        >
-                          <option value="">Seleccionar estado...</option>
-                          {ESTADOS.filter(e => e !== caso.estado).map(e => (
-                            <option key={e} value={e}>{labelEstado[e]}</option>
+                {/* Detalle expandido */}
+                {expandido === caso.id && (
+                  <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* Incidentes asociados */}
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Incidentes asociados
+                      </p>
+                      {incidentes.length === 0 ? (
+                        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
+                          Sin incidentes asociados.
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {incidentes.map(inc => (
+                            <div key={inc.id} style={{
+                              display: 'flex', alignItems: 'flex-start', gap: 12,
+                              padding: '10px 14px', background: 'var(--surface2)',
+                              borderRadius: 8, border: '1px solid var(--border)',
+                            }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>#{inc.id}</span>
+                                  <span className={`badge badge-${inc.gravedad.toLowerCase()}`}>
+                                    {labelGravedad[inc.gravedad]}
+                                  </span>
+                                  <span style={{
+                                    background: 'var(--surface)', color: 'var(--muted)',
+                                    padding: '3px 10px', borderRadius: 20, fontSize: 12,
+                                    border: '1px solid var(--border)',
+                                  }}>
+                                    {labelTipo[inc.tipo]}
+                                  </span>
+                                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                    {new Date(inc.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                                  {inc.descripcion}
+                                </p>
+                              </div>
+                            </div>
                           ))}
-                        </select>
-                        <button
-                          className="btn-primary"
-                          onClick={() => handleCambiarEstado(caso.id)}
-                          disabled={!nuevoEstado}
-                          style={{ fontSize: 13, padding: '8px 16px' }}
-                        >
-                          Confirmar
-                        </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Acciones de intervención */}
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Acciones de intervención
+                      </p>
+                      {acciones.length === 0 ? (
+                        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
+                          Sin acciones registradas aún.
+                        </p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {acciones.map((ac) => (
+                            <div key={ac.id} style={{
+                              display: 'flex', gap: 12, alignItems: 'flex-start',
+                              padding: '10px 14px', background: 'rgba(107,31,42,0.04)',
+                              borderRadius: 8, border: '1px solid rgba(107,31,42,0.1)',
+                            }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <span style={{
+                                    background: 'rgba(107,31,42,0.08)', color: 'var(--accent)',
+                                    border: '1px solid rgba(107,31,42,0.2)',
+                                    borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600,
+                                  }}>
+                                    {labelAccion[ac.tipo]}
+                                  </span>
+                                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                                    {new Date(ac.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                                {ac.descripcion && (
+                                  <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                                    {ac.descripcion}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actualizar estado */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      paddingTop: 16, borderTop: '1px solid var(--border)',
+                    }}>
+                      {editandoEstado === caso.id ? (
+                        <>
+                          <select
+                            value={nuevoEstado}
+                            onChange={e => setNuevoEstado(e.target.value)}
+                            style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
+                          >
+                            <option value="">Seleccionar estado...</option>
+                            {ESTADOS.filter(e => e !== caso.estado).map(e => (
+                              <option key={e} value={e}>{labelEstado[e]}</option>
+                            ))}
+                          </select>
+                          <button
+                            className="btn-primary"
+                            onClick={() => handleCambiarEstado(caso.id)}
+                            disabled={!nuevoEstado || cambiandoEstado}
+                            style={{ fontSize: 13, padding: '8px 16px' }}
+                          >
+                            {cambiandoEstado ? 'Guardando...' : 'Confirmar'}
+                          </button>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => { setEditandoEstado(null); setNuevoEstado('') }}
+                            style={{ fontSize: 13, padding: '8px 16px' }}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
                         <button
                           className="btn-secondary"
-                          onClick={() => { setEditandoEstado(null); setNuevoEstado('') }}
+                          onClick={() => { setEditandoEstado(caso.id); setNuevoEstado('') }}
                           style={{ fontSize: 13, padding: '8px 16px' }}
                         >
-                          Cancelar
+                          Cambiar estado
                         </button>
-                      </>
-                    ) : (
-                      <button
-                        className="btn-secondary"
-                        onClick={() => { setEditandoEstado(caso.id); setNuevoEstado('') }}
-                        style={{ fontSize: 13, padding: '8px 16px' }}
-                      >
-                        Cambiar estado
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

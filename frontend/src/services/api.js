@@ -26,7 +26,27 @@ export const agregarInvolucrado = (incidenteId, data) =>
 export const getHistorialEstudiante = (estudianteId, params = {}) =>
   api.get(`/estudiantes/${estudianteId}/incidentes`, { params })
 
-export const getHistorialCurso = (curso, params = {}) =>
-  api.get(`/estudiantes/curso/${encodeURIComponent(curso)}/incidentes`, { params })
+// ── Incidentes (buscador genérico, usado en Crear Caso) ─────────────────────
+export const getIncidentes = (params = {}) =>
+  api.get('/incidentes', { params })
+
+// ── Casos ─────────────────────────────────────────────────────────────────────
+export const crearCaso = (data) =>
+  api.post('/casos', data)
+
+export const asociarIncidenteACaso = (casoId, incidenteId) =>
+  api.post(`/casos/${casoId}/incidentes`, { incidenteId })
+
+export const getCaso = (casoId) =>
+  api.get(`/casos/${casoId}`)
+
+export const getCasos = (params = {}) =>
+  api.get('/casos', { params })
+
+export const registrarAccion = (casoId, data) =>
+  api.post(`/casos/${casoId}/acciones`, data)
+
+export const actualizarEstadoCaso = (casoId, estado) =>
+  api.patch(`/casos/${casoId}/estado`, { estado })
 
 export default api

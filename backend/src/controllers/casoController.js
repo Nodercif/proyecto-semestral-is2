@@ -59,10 +59,51 @@ export const obtenerCaso = async (req, res) => {
 
 export const listarCasos = async (req, res) => {
   try {
-    const casos = await casoService.listarCasos()
+    const { estado, texto, desde, hasta } = req.query
+    const casos = await casoService.listarCasos({ estado, texto, desde, hasta })
     res.status(200).json({ data: casos })
   } catch (error) {
     console.error('Error al listar casos:', error)
     res.status(500).json({ error: 'Error al listar los casos.' })
+  }
+}
+
+export const registrarAccion = async (req, res) => {
+  try {
+    const casoId = parseInt(req.params.id, 10)
+    if (isNaN(casoId)) {
+      return res.status(400).json({ error: 'El id del caso debe ser un número.' })
+    }
+    const caso = await casoService.registrarAccion(casoId, req.body)
+    res.status(201).json({ data: caso })
+  } catch (error) {
+    if (error.tipo === 'VALIDACION') {
+      return res.status(400).json({ errores: error.errores })
+    }
+    if (error.tipo === 'NO_ENCONTRADO') {
+      return res.status(404).json({ error: error.message })
+    }
+    console.error('Error al registrar acción:', error)
+    res.status(500).json({ error: 'Error al registrar la acción de intervención.' })
+  }
+}
+
+export const actualizarEstado = async (req, res) => {
+  try {
+    const casoId = parseInt(req.params.id, 10)
+    if (isNaN(casoId)) {
+      return res.status(400).json({ error: 'El id del caso debe ser un número.' })
+    }
+    const caso = await casoService.actualizarEstadoCaso(casoId, req.body.estado)
+    res.status(200).json({ data: caso })
+  } catch (error) {
+    if (error.tipo === 'VALIDACION') {
+      return res.status(400).json({ errores: error.errores })
+    }
+    if (error.tipo === 'NO_ENCONTRADO') {
+      return res.status(404).json({ error: error.message })
+    }
+    console.error('Error al actualizar estado del caso:', error)
+    res.status(500).json({ error: 'Error al actualizar el estado del caso.' })
   }
 }

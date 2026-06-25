@@ -36,6 +36,34 @@ router.post(
   casoController.asociarIncidente
 )
 
+// POST /casos/:id/acciones
+router.post(
+  '/:id/acciones',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.registrarAccion
+)
+
+// PATCH /casos/:id/estado
+router.patch(
+  '/:id/estado',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.actualizarEstado
+)
+
 // GET /casos/:id
 router.get(
   '/:id',
