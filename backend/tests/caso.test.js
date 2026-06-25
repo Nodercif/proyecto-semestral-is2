@@ -1,20 +1,47 @@
-jest.mock('../src/prismaClient', () => ({
-  caso: {
-    create:     jest.fn(),
-    findUnique: jest.fn(),
-    findMany:   jest.fn(),
-  },
-  incidente: {
-    findUnique: jest.fn(),
-  },
-  casoIncidente: {
-    create: jest.fn(),
+/**
+ * Tests — Casos (Vitest, ESM)
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import request from 'supertest'
+import { PrismaClient } from '@prisma/client'
+import app from '../src/index.js'
+
+// ─── Mock de Prisma ──────────────────────────────────────────────────────────
+vi.mock('@prisma/client', () => {
+  const mockPrisma = {
+    caso: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
+    incidente: {
+      findUnique: vi.fn(),
+    },
+    casoIncidente: {
+      create: vi.fn(),
+    },
+  }
+  return {
+    PrismaClient: class {
+      constructor() { return mockPrisma }
+    },
+  }
+})
+
+// ─── Mock de JWT ─────────────────────────────────────────────────────────────
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    verify: vi.fn(() => ({
+      sub: 1,
+      email: 'admin@colegio.cl',
+      rol: 'ADMINISTRADOR',
+      funcionarioId: 10,
+    })),
   },
 }))
 
-const request = require('supertest')
-const app     = require('../src/app')
-const prisma  = require('../src/prismaClient')
+// ─── Datos de prueba ────────────────────────────────────────────────────────
+const TOKEN = 'Bearer token-valido'
 
 const incidenteMock = {
   id:              1,
@@ -49,7 +76,9 @@ const casoConIncidente = {
   ],
 }
 
-beforeEach(() => jest.clearAllMocks())
+const prisma = new PrismaClient()
+
+beforeEach(() => { vi.clearAllMocks() })
 
 // =============================================================================
 // POST /casos
@@ -63,6 +92,7 @@ describe('POST /casos', () => {
 
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: 'Caso de prueba' })
 
       expect(res.status).toBe(201)
@@ -78,6 +108,7 @@ describe('POST /casos', () => {
 
       await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: 'Cualquier título' })
 
       const argData = prisma.caso.create.mock.calls[0][0].data
@@ -89,6 +120,7 @@ describe('POST /casos', () => {
 
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: '   Caso limpio   ' })
 
       expect(res.status).toBe(201)
@@ -101,6 +133,7 @@ describe('POST /casos', () => {
     it('debe retornar 400 si falta el campo "titulo"', async () => {
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({})
 
       expect(res.status).toBe(400)
@@ -111,6 +144,7 @@ describe('POST /casos', () => {
     it('debe retornar 400 si el título es una cadena vacía', async () => {
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: '' })
 
       expect(res.status).toBe(400)
@@ -120,6 +154,7 @@ describe('POST /casos', () => {
     it('debe retornar 400 si el título solo tiene espacios en blanco', async () => {
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: '   ' })
 
       expect(res.status).toBe(400)
@@ -133,6 +168,7 @@ describe('POST /casos', () => {
 
       const res = await request(app)
         .post('/casos')
+        .set('Authorization', TOKEN)
         .send({ titulo: 'Caso válido' })
 
       expect(res.status).toBe(500)
@@ -157,6 +193,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       const res = await request(app)
         .post('/casos/1/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 1 })
 
       expect(res.status).toBe(200)
@@ -175,6 +212,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       await request(app)
         .post('/casos/1/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 1 })
 
       expect(prisma.casoIncidente.create).toHaveBeenCalledWith({
@@ -189,6 +227,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       const res = await request(app)
         .post('/casos/999/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 1 })
 
       expect(res.status).toBe(404)
@@ -201,6 +240,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       const res = await request(app)
         .post('/casos/1/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 999 })
 
       expect(res.status).toBe(404)
@@ -219,6 +259,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       const res = await request(app)
         .post('/casos/1/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 1 })
 
       expect(res.status).toBe(409)
@@ -233,6 +274,7 @@ describe('POST /casos/:id/incidentes', () => {
 
       const res = await request(app)
         .post('/casos/1/incidentes')
+        .set('Authorization', TOKEN)
         .send({ incidenteId: 9999 })
 
       expect(res.status).toBe(404)
@@ -251,7 +293,9 @@ describe('GET /casos/:id', () => {
     it('debe retornar 200 con el caso y sus incidentes asociados', async () => {
       prisma.caso.findUnique.mockResolvedValue(casoConIncidente)
 
-      const res = await request(app).get('/casos/1')
+      const res = await request(app)
+        .get('/casos/1')
+        .set('Authorization', TOKEN)
 
       expect(res.status).toBe(200)
       expect(res.body.data).toBeDefined()
@@ -263,7 +307,9 @@ describe('GET /casos/:id', () => {
     it('debe incluir la información del incidente anidada en casoIncidentes', async () => {
       prisma.caso.findUnique.mockResolvedValue(casoConIncidente)
 
-      const res = await request(app).get('/casos/1')
+      const res = await request(app)
+        .get('/casos/1')
+        .set('Authorization', TOKEN)
 
       const incidente = res.body.data.casoIncidentes[0].incidente
       expect(incidente).toBeDefined()
@@ -276,7 +322,9 @@ describe('GET /casos/:id', () => {
     it('debe retornar 404 cuando el caso no existe', async () => {
       prisma.caso.findUnique.mockResolvedValue(null)
 
-      const res = await request(app).get('/casos/999')
+      const res = await request(app)
+        .get('/casos/999')
+        .set('Authorization', TOKEN)
 
       expect(res.status).toBe(404)
     })
@@ -286,7 +334,9 @@ describe('GET /casos/:id', () => {
     it('debe retornar 500 si prisma lanza una excepción inesperada', async () => {
       prisma.caso.findUnique.mockRejectedValue(new Error('Timeout'))
 
-      const res = await request(app).get('/casos/1')
+      const res = await request(app)
+        .get('/casos/1')
+        .set('Authorization', TOKEN)
 
       expect(res.status).toBe(500)
     })
@@ -302,7 +352,9 @@ describe('GET /casos', () => {
   it('debe retornar 200 con la lista de todos los casos', async () => {
     prisma.caso.findMany.mockResolvedValue([casoBase])
 
-    const res = await request(app).get('/casos')
+    const res = await request(app)
+      .get('/casos')
+      .set('Authorization', TOKEN)
 
     expect(res.status).toBe(200)
     expect(res.body.data).toBeDefined()
@@ -313,7 +365,9 @@ describe('GET /casos', () => {
   it('debe retornar una lista vacía [] cuando no hay casos registrados', async () => {
     prisma.caso.findMany.mockResolvedValue([])
 
-    const res = await request(app).get('/casos')
+    const res = await request(app)
+      .get('/casos')
+      .set('Authorization', TOKEN)
 
     expect(res.status).toBe(200)
     expect(res.body.data).toEqual([])
@@ -324,7 +378,9 @@ describe('GET /casos', () => {
     const caso2 = { ...casoBase, id: 2, createdAt: new Date('2024-06-01') }
     prisma.caso.findMany.mockResolvedValue([caso2, caso1])
 
-    const res = await request(app).get('/casos')
+    const res = await request(app)
+      .get('/casos')
+      .set('Authorization', TOKEN)
 
     expect(res.status).toBe(200)
     expect(res.body.data[0].id).toBe(2)
@@ -333,7 +389,9 @@ describe('GET /casos', () => {
   it('debe retornar 500 si prisma falla al listar', async () => {
     prisma.caso.findMany.mockRejectedValue(new Error('DB error'))
 
-    const res = await request(app).get('/casos')
+    const res = await request(app)
+      .get('/casos')
+      .set('Authorization', TOKEN)
 
     expect(res.status).toBe(500)
   })

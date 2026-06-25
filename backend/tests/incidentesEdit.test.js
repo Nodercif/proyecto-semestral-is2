@@ -1,3 +1,4 @@
+// tests/incidentesEdit.test.js
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
@@ -38,10 +39,30 @@ vi.mock('@prisma/client', () => ({
 }))
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mock de jsonwebtoken para evitar dependencia de JWT_SECRET en tests
+// ─────────────────────────────────────────────────────────────────────────────
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    sign: vi.fn((payload) => `token-${payload.rol}`), // token incluye el rol
+    verify: vi.fn((token) => {
+      if (token && token.includes('DOCENTE')) {
+        return { id: 'u1', rol: 'DOCENTE', funcionarioId: 1, sub: 1, email: 'docente@colegio.cl' }
+      }
+      if (token && token.includes('ENCARGADO_CONVIVENCIA')) {
+        return { id: 'u1', rol: 'ENCARGADO_CONVIVENCIA', funcionarioId: 1, sub: 1, email: 'encargado@colegio.cl' }
+      }
+      return { id: 'u1', rol: 'ADMINISTRADOR', funcionarioId: 1, sub: 1, email: 'admin@colegio.cl' }
+    }),
+  },
+}))
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers de fixtures
 // ─────────────────────────────────────────────────────────────────────────────
-const generarToken = (rol = 'ADMINISTRADOR') =>
-  jwt.sign({ id: 'u1', rol, funcionarioId: 1 }, process.env.JWT_SECRET)
+const generarToken = (rol = 'ADMINISTRADOR') => {
+  const payload = { id: 'u1', rol, funcionarioId: 1 }
+  return jwt.sign(payload, process.env.JWT_SECRET)
+}
 
 const incidenteBase = {
   id: 5,
