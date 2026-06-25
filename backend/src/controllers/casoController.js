@@ -1,102 +1,68 @@
-import casoService from '../services/casoService.js';
+import * as casoService from '../services/casoService.js'
 
-async function crearCaso(req, res) {
+export const crearCaso = async (req, res) => {
   try {
-    const caso = await casoService.crearCaso(req.body);
-
-    return res.status(201).json({
-      mensaje: 'Caso creado exitosamente.',
-      data: caso,
-    });
+    const caso = await casoService.crearCaso(req.body)
+    res.status(201).json({ data: caso })
   } catch (error) {
     if (error.tipo === 'VALIDACION') {
-      return res.status(400).json({
-        mensaje: 'Error de validación.',
-        errores: error.errores,
-      });
+      return res.status(400).json({ errores: error.errores })
     }
-
-    console.error('Error al crear caso:', error);
-    return res.status(500).json({
-      mensaje: 'Error interno del servidor.',
-    });
+    console.error('Error al crear caso:', error)
+    res.status(500).json({ error: 'Error al crear el caso.' })
   }
 }
 
-async function asociarIncidente(req, res) {
+export const asociarIncidente = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { incidenteId } = req.body;
+    const casoId = parseInt(req.params.id, 10)
+    const { incidenteId } = req.body
 
-    const caso = await casoService.asociarIncidenteAlCaso(id, incidenteId);
-
-    return res.status(200).json({
-      mensaje: 'Incidente asociado al caso exitosamente.',
-      data: caso,
-    });
-  } catch (error) {
-    if (error.tipo === 'VALIDACION') {
-      return res.status(400).json({
-        mensaje: 'Error de validación.',
-        errores: error.errores,
-      });
+    if (isNaN(casoId)) {
+      return res.status(400).json({ error: 'El id del caso debe ser un número.' })
     }
 
+    if (!incidenteId || isNaN(parseInt(incidenteId, 10))) {
+      return res.status(400).json({ error: 'El incidenteId es obligatorio y debe ser un número.' })
+    }
+
+    const caso = await casoService.asociarIncidenteAlCaso(casoId, parseInt(incidenteId, 10))
+    res.status(200).json({ data: caso })
+  } catch (error) {
+    if (error.tipo === 'NO_ENCONTRADO') {
+      return res.status(404).json({ error: error.message })
+    }
     if (error.tipo === 'CONFLICTO') {
-      return res.status(409).json({
-        mensaje: error.mensaje,
-      });
+      return res.status(409).json({ error: error.message })
     }
-
-    if (error.tipo === 'NO_ENCONTRADO') {
-      return res.status(404).json({
-        mensaje: error.mensaje,
-      });
-    }
-
-    console.error('Error al asociar incidente:', error);
-    return res.status(500).json({
-      mensaje: 'Error interno del servidor.',
-    });
+    console.error('Error al asociar incidente:', error)
+    res.status(500).json({ error: 'Error al asociar el incidente al caso.' })
   }
 }
 
-async function obtenerCaso(req, res) {
+export const obtenerCaso = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const caso = await casoService.obtenerCaso(id);
-
-    return res.status(200).json({
-      data: caso,
-    });
+    const casoId = parseInt(req.params.id, 10)
+    if (isNaN(casoId)) {
+      return res.status(400).json({ error: 'El id del caso debe ser un número.' })
+    }
+    const caso = await casoService.obtenerCaso(casoId)
+    res.status(200).json({ data: caso })
   } catch (error) {
     if (error.tipo === 'NO_ENCONTRADO') {
-      return res.status(404).json({
-        mensaje: error.mensaje,
-      });
+      return res.status(404).json({ error: error.message })
     }
-
-    console.error('Error al obtener caso:', error);
-    return res.status(500).json({
-      mensaje: 'Error interno del servidor.',
-    });
+    console.error('Error al obtener caso:', error)
+    res.status(500).json({ error: 'Error al obtener el caso.' })
   }
 }
 
-async function listarCasos(req, res) {
+export const listarCasos = async (req, res) => {
   try {
-    const casos = await casoService.listarCasos();
-
-    return res.status(200).json({
-      data: casos,
-    });
+    const casos = await casoService.listarCasos()
+    res.status(200).json({ data: casos })
   } catch (error) {
-    console.error('Error al listar casos:', error);
-    return res.status(500).json({
-      mensaje: 'Error interno del servidor.',
-    });
+    console.error('Error al listar casos:', error)
+    res.status(500).json({ error: 'Error al listar los casos.' })
   }
 }
-
-export default { crearCaso, asociarIncidente, obtenerCaso, listarCasos };

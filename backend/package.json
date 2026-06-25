@@ -5,8 +5,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest --runInBand --forceExit",
-    "test:coverage": "jest --coverage --runInBand --forceExit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed"
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@vitest/coverage-v8": "^4.1.9",
     "jest": "^29.7.0",
     "nodemon": "^3.1.14",
     "prisma": "^5.10.0",

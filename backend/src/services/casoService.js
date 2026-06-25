@@ -1,4 +1,4 @@
-const prisma = require('../prismaClient')
+import prisma from '../config/prisma.js'
 
 function validarDatosCaso(datos) {
   const errores = []
@@ -85,4 +85,4 @@ async function listarCasos() {
   })
 }
 
-module.exports = { crearCaso, asociarIncidenteAlCaso, obtenerCaso, listarCasos, validarDatosCaso }
+export { crearCaso, asociarIncidenteAlCaso, obtenerCaso, listarCasos, validarDatosCaso }
