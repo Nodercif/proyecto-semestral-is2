@@ -156,8 +156,12 @@ export default function RegistrarIncidente() {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
-      <h2>Registrar Incidente</h2>
-      <p style={{ color: 'var(--muted)' }}>Complete los datos y luego agregue los involucrados.</p>
+      <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 26, marginBottom: 6 }}>
+        Registrar Incidente
+      </h2>
+      <p style={{ color: 'var(--muted)', marginBottom: 28, fontSize: 14 }}>
+        Complete los datos del incidente y luego agregue los estudiantes involucrados.
+      </p>
 
       {exito && <div className="card" style={{ borderColor: 'var(--success)', marginBottom: 20 }}>
         <p className="success-msg">✓ {exito}</p>

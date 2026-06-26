@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   getHistorialEstudiante, getHistorialCurso, eliminarIncidente,
   getIncidente, editarIncidente, getEstudiantes,
-  getIncidentes, // <-- Importamos la función para obtener todos los incidentes
+  getIncidentes,
 } from '../services/api'
 import { CURSOS } from '../constants/cursos'
 
@@ -18,7 +18,8 @@ const toTimeInput = (iso) => (iso ? new Date(iso).toISOString().slice(11, 16) : 
 
 export default function HistorialEstudiante() {
   const [modoBusqueda, setModoBusqueda] = useState('id') // 'id' | 'curso'
-  const [estudianteId, setEstudianteId] = useState('')
+  const [estudianteInput, setEstudianteInput] = useState('') // texto ingresado por usuario (puede ser ID o nombre)
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null) // objeto estudiante seleccionado después de búsqueda
   const [cursoSeleccionado, setCursoSeleccionado] = useState('')
   const [filtros, setFiltros] = useState({ tipo: '', gravedad: '', rolInvolucrado: '', desde: '', hasta: '' })
   const [resultado, setResultado] = useState(null)
@@ -26,6 +27,10 @@ export default function HistorialEstudiante() {
   const [error, setError] = useState('')
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
+
+  // Estado para lista de estudiantes encontrados por nombre
+  const [estudiantesEncontrados, setEstudiantesEncontrados] = useState([])
+  const [buscandoEstudiantes, setBuscandoEstudiantes] = useState(false)
 
   // Edición de incidente
   const [editandoId, setEditandoId] = useState(null)
@@ -62,60 +67,98 @@ export default function HistorialEstudiante() {
     }
   }
 
-  // ── MODIFICACIÓN PRINCIPAL: handleBuscar ahora soporta búsqueda sin filtro ──
-  const handleBuscar = async (e) => {
-    e.preventDefault()
-
-    // Ya no hay retorno temprano; si no hay estudiante ni curso, se buscan todos los incidentes
-
-    setError('')
+  // Función para cargar historial de un estudiante dado su ID
+  const cargarHistorialEstudiante = async (id) => {
     setLoading(true)
+    setError('')
     setResultado(null)
-
     try {
-      // Construir filtros comunes (tipo, gravedad, fechas)
       const params = Object.fromEntries(Object.entries(filtros).filter(([, v]) => v !== ''))
-
-      // Caso 1: sin estudiante ni curso → mostrar todos los incidentes
-      const sinFiltroEstudianteCurso = (modoBusqueda === 'id' && !estudianteId) || (modoBusqueda === 'curso' && !cursoSeleccionado)
-
-      if (sinFiltroEstudianteCurso) {
-        // Usar el endpoint GET /incidentes (ya soporta filtros por tipo, gravedad, fechas)
-        const incidentesParams = {}
-        if (params.tipo) incidentesParams.tipo = params.tipo
-        if (params.gravedad) incidentesParams.gravedad = params.gravedad
-        if (params.desde) incidentesParams.desde = params.desde
-        if (params.hasta) incidentesParams.hasta = params.hasta
-        // El filtro "rolInvolucrado" no se soporta en este endpoint, se omite
-
-        const response = await getIncidentes(incidentesParams)
-
-        // Transformar la respuesta al formato que espera el frontend
-        // (cada elemento debe tener { incidente, rol, observacion, estudiante })
-        const incidentes = response.data.data.map(inc => ({
-          incidente: inc,
-          rol: null,               // No hay rol específico en la vista general
-          observacion: null,       // No hay observación específica
-          estudiante: null,        // No hay estudiante específico
-        }))
-
-        setResultado({
-          totalIncidentes: incidentes.length,
-          incidentes: incidentes,
-          vistaGeneral: true,      // Bandera para el renderizado
-        })
-      } else if (modoBusqueda === 'id') {
-        const res = await getHistorialEstudiante(estudianteId, params)
-        setResultado(res.data)
-      } else { // modoBusqueda === 'curso'
-        const res = await getHistorialCurso(cursoSeleccionado, params)
-        setResultado(res.data)
-      }
+      const res = await getHistorialEstudiante(id, params)
+      setResultado(res.data)
+      // Resetear selección de estudiantes encontrados
+      setEstudiantesEncontrados([])
+      setEstudianteSeleccionado(null)
     } catch (err) {
       setError(err.response?.data?.error || 'Error al buscar el historial')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Función principal de búsqueda
+  const handleBuscar = async (e) => {
+    e.preventDefault()
+
+    // Caso 1: modo curso
+    if (modoBusqueda === 'curso') {
+      if (!cursoSeleccionado) {
+        setError('Seleccione un curso para buscar.')
+        return
+      }
+      setError('')
+      setLoading(true)
+      setResultado(null)
+      try {
+        const params = Object.fromEntries(Object.entries(filtros).filter(([, v]) => v !== ''))
+        const res = await getHistorialCurso(cursoSeleccionado, params)
+        setResultado(res.data)
+      } catch (err) {
+        setError(err.response?.data?.error || 'Error al buscar el historial')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Caso 2: modo estudiante (ID o nombre)
+    if (!estudianteInput.trim()) {
+      setError('Ingrese el ID o nombre del estudiante (o déjelo vacío para ver todos).')
+      return
+    }
+
+    // Si el estudianteInput es un número, intentar buscar por ID directamente
+    const idNumerico = parseInt(estudianteInput.trim(), 10)
+    if (!isNaN(idNumerico) && idNumerico > 0) {
+      // Intentar cargar historial por ID
+      try {
+        await cargarHistorialEstudiante(idNumerico)
+      } catch (err) {
+        setError('No se encontró un estudiante con ese ID.')
+      }
+      return
+    }
+
+    // Si no es número, buscar estudiantes por nombre
+    setBuscandoEstudiantes(true)
+    setError('')
+    setEstudiantesEncontrados([])
+    setEstudianteSeleccionado(null)
+    try {
+      const res = await getEstudiantes({ nombre: estudianteInput.trim() })
+      const estudiantes = res.data.data || []
+      if (estudiantes.length === 0) {
+        setError(`No se encontraron estudiantes con el nombre "${estudianteInput.trim()}".`)
+        setEstudiantesEncontrados([])
+      } else if (estudiantes.length === 1) {
+        // Solo uno, cargar directamente
+        await cargarHistorialEstudiante(estudiantes[0].id)
+      } else {
+        // Múltiples, mostrar lista para seleccionar
+        setEstudiantesEncontrados(estudiantes)
+        setError('Se encontraron varios estudiantes. Seleccione uno de la lista:')
+      }
+    } catch (err) {
+      setError('Error al buscar estudiantes por nombre.')
+    } finally {
+      setBuscandoEstudiantes(false)
+    }
+  }
+
+  // Cuando se selecciona un estudiante de la lista de resultados
+  const seleccionarEstudiante = async (est) => {
+    setEstudianteSeleccionado(est)
+    await cargarHistorialEstudiante(est.id)
   }
 
   // ── Iniciar edición: carga el detalle completo (con involucrados) ───────────
@@ -239,14 +282,26 @@ export default function HistorialEstudiante() {
     }
   }
 
+  // Calcular reincidencia
+  const calcularReincidencia = (incidentes) => {
+    if (!incidentes || incidentes.length === 0) return null
+    const responsables = incidentes.filter(item => item.rol === 'RESPONSABLE')
+    if (responsables.length >= 2) {
+      return {
+        total: responsables.length,
+        incidentes: responsables
+      }
+    }
+    return null
+  }
+
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
       <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 26, marginBottom: 6 }}>
         Historial de Incidentes
       </h2>
       <p style={{ color: 'var(--muted)', marginBottom: 28, fontSize: 14 }}>
-        Consulte el historial por estudiante o por curso. Puede filtrar por tipo, gravedad, rol o rango de fechas.
-        Deje el campo de estudiante/curso vacío para ver todos los incidentes.
+        Consulte el historial por estudiante (nombre o ID) o por curso. Puede filtrar por tipo, gravedad, rol o rango de fechas.
       </p>
 
       <div className="card" style={{ marginBottom: 24 }}>
@@ -258,7 +313,7 @@ export default function HistorialEstudiante() {
               <button
                 key={modo}
                 type="button"
-                onClick={() => { setModoBusqueda(modo); setResultado(null); setError('') }}
+                onClick={() => { setModoBusqueda(modo); setResultado(null); setError(''); setEstudiantesEncontrados([]); setEstudianteSeleccionado(null); }}
                 style={{
                   padding: '6px 18px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
                   border: '1px solid var(--border)',
@@ -273,14 +328,33 @@ export default function HistorialEstudiante() {
             ))}
           </div>
 
-          {/* Campo principal según modo (ahora opcional) */}
+          {/* Campo principal según modo */}
           {modoBusqueda === 'id' ? (
             <div className="form-group">
-              <label>ID del estudiante (opcional)</label>
+              <label>Nombre o ID del estudiante (opcional)</label>
               <input
-                type="number" min={1} placeholder="Ej: 1 (dejar vacío para todos)"
-                value={estudianteId} onChange={e => setEstudianteId(e.target.value)}
+                type="text"
+                placeholder="Ej: Juan Pérez o 1 (dejar vacío para todos)"
+                value={estudianteInput}
+                onChange={e => { setEstudianteInput(e.target.value); setEstudiantesEncontrados([]); setEstudianteSeleccionado(null); }}
               />
+              {buscandoEstudiantes && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Buscando estudiantes...</p>}
+              {estudiantesEncontrados.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>Seleccione un estudiante:</p>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {estudiantesEncontrados.map(est => (
+                      <li key={est.id} style={{ padding: '6px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                        onClick={() => seleccionarEstudiante(est)}
+                        onMouseEnter={e => e.target.style.background = 'var(--surface2)'}
+                        onMouseLeave={e => e.target.style.background = 'transparent'}
+                      >
+                        {est.nombres} {est.apellidos} ({est.curso})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : (
             <div className="form-group">
@@ -389,6 +463,29 @@ export default function HistorialEstudiante() {
                 <p style={{ fontSize: 11 }}>incidente(s)</p>
               </div>
             </div>
+
+            {/* Alerta de reincidencia */}
+            {modoBusqueda === 'id' && resultado.estudiante && (
+              (() => {
+                const reincidencia = calcularReincidencia(resultado.incidentes)
+                if (reincidencia) {
+                  return (
+                    <div style={{
+                      marginTop: 12,
+                      padding: '12px 16px',
+                      background: 'rgba(248,113,113,0.15)',
+                      border: '1px solid var(--danger)',
+                      borderRadius: 8,
+                      color: 'var(--danger)',
+                      fontSize: 14,
+                    }}>
+                      <strong>⚠️ Alerta de reincidencia:</strong> El estudiante ha sido registrado como <strong>responsable</strong> en {reincidencia.total} incidentes. Revise el historial para tomar acciones preventivas.
+                    </div>
+                  )
+                }
+                return null
+              })()
+            )}
           </div>
 
           {resultado.incidentes.length === 0 ? (
@@ -563,7 +660,6 @@ export default function HistorialEstudiante() {
                         }}>
                           {labelTipo[item.incidente.tipo]}
                         </span>
-                        {/* Mostrar el rol solo si existe (no es null) */}
                         {item.rol && (
                           <span className={`badge badge-${item.rol.toLowerCase()}`}>
                             {labelRol[item.rol]}
@@ -590,7 +686,6 @@ export default function HistorialEstudiante() {
                       </p>
                     )}
 
-                    {/* En modo curso o vista general, mostrar el estudiante si existe */}
                     {(modoBusqueda === 'curso' || resultado.vistaGeneral) && item.estudiante && (
                       <p style={{ fontSize: 12, color: 'var(--accent)', marginTop: 8, fontWeight: 500 }}>
                         Estudiante: {item.estudiante.nombres} {item.estudiante.apellidos}
@@ -604,7 +699,6 @@ export default function HistorialEstudiante() {
                       </p>
                     )}
 
-                    {/* Editar / eliminar incidente */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                       {confirmandoEliminar === item.incidente.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
