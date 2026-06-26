@@ -132,28 +132,81 @@ router.get(
 // ── POST /incidentes ───────────────────────────────────────────────────────
 router.post(
   '/',
-  authorize(
-    ROLES.ADMINISTRADOR,
-    ROLES.ENCARGADO_CONVIVENCIA,
-    ROLES.INSPECTOR,
-    ROLES.DOCENTE,
-    ROLES.ORIENTADOR,
-    ROLES.EQUIPO_DIRECTIVO
-  ),
+  authorize(ROLES.ADMINISTRADOR, ROLES.ENCARGADO_CONVIVENCIA, ROLES.INSPECTOR, ROLES.DOCENTE, ROLES.ORIENTADOR, ROLES.EQUIPO_DIRECTIVO),
   async (req, res) => {
-    const { fecha, descripcion, tipo, gravedad } = req.body
-    const registradoPorId = req.usuario.funcionarioId  // viene del token JWT
+    const { fecha, descripcion, tipo, gravedad, involucrados } = req.body;
+    const registradoPorId = req.usuario.funcionarioId;
+
+    // Validación básica
+    const errores = [];
+    if (!fecha || isNaN(new Date(fecha).getTime())) errores.push('Fecha inválida.');
+    if (!descripcion || descripcion.trim() === '') errores.push('Descripción obligatoria.');
+    if (!tipo || !TIPOS_VALIDOS.includes(tipo)) errores.push('Tipo inválido.');
+    if (!gravedad || !GRAVEDADES_VALIDAS.includes(gravedad)) errores.push('Gravedad inválida.');
+    if (!Array.isArray(involucrados)) errores.push('El campo "involucrados" debe ser un arreglo.');
+
+    if (errores.length > 0) {
+      return res.status(400).json({ errores });
+    }
+
+    // Validar cada involucrado
+    for (let i = 0; i < involucrados.length; i++) {
+      const inv = involucrados[i];
+      if (!inv.estudianteId) errores.push(`Involucrado ${i+1}: estudianteId obligatorio.`);
+      if (!inv.rol || !ROLES_INVOLUCRADO_VALIDOS.includes(inv.rol)) {
+        errores.push(`Involucrado ${i+1}: rol inválido.`);
+      }
+    }
+    if (errores.length > 0) {
+      return res.status(400).json({ errores });
+    }
+
     try {
-      const incidente = await prisma.incidente.create({
-        data: { fecha: new Date(fecha), descripcion, tipo, gravedad, registradoPorId }
-      })
-      res.status(201).json(incidente)
+      const resultado = await prisma.$transaction(async (tx) => {
+        // 1. Crear incidente
+        const incidente = await tx.incidente.create({
+          data: {
+            fecha: new Date(fecha),
+            descripcion: descripcion.trim(),
+            tipo,
+            gravedad,
+            registradoPorId,
+          },
+        });
+
+        // 2. Crear involucrados (si los hay)
+        for (const inv of involucrados) {
+          await tx.involucrado.create({
+            data: {
+              incidenteId: incidente.id,
+              estudianteId: Number(inv.estudianteId),
+              rol: inv.rol,
+              observacion: inv.observacion || null,
+              funcionarioIntervinienteId: inv.funcionarioIntervinienteId ? Number(inv.funcionarioIntervinienteId) : null,
+            },
+          });
+        }
+
+        // 3. Devolver incidente con sus involucrados
+        return tx.incidente.findUnique({
+          where: { id: incidente.id },
+          include: {
+            involucrados: { include: { estudiante: true, funcionarioInterviniente: true } },
+            registradoPor: true,
+          },
+        });
+      });
+
+      res.status(201).json({ mensaje: 'Incidente registrado exitosamente.', data: resultado });
     } catch (error) {
-      console.error('Error al crear incidente:', error)
-      res.status(500).json({ error: 'Error al crear el incidente' })
+      if (error.code === 'P2002') {
+        return res.status(409).json({ error: 'Conflicto: estudiante ya tiene ese rol en el incidente.' });
+      }
+      console.error(error);
+      res.status(500).json({ error: 'Error al registrar incidente.' });
     }
   }
-)
+);
 
 // ── PUT /incidentes/:id ──────────────────────────────────────────────────────
 // Permite editar un incidente ya registrado: sus datos básicos (fecha, tipo,
@@ -370,13 +423,35 @@ router.put(
 )
 
 // ── DELETE /incidentes/:id ────────────────────────────────────────────────
+// Borrado permanente en cascada: elimina los involucrados del incidente y
+// sus asociaciones a casos (CasoIncidente), pero NO elimina los casos en sí.
 router.delete(
   '/:id',
-  authorize(ROLES.ADMINISTRADOR),
-  (req, res) => {
-    res.json({
-      message: `Incidente ${req.params.id} eliminado (stub)`,
-    });
+  authorize(ROLES.ADMINISTRADOR, ROLES.ENCARGADO_CONVIVENCIA),
+  async (req, res) => {
+    const incidenteId = parseInt(req.params.id, 10)
+
+    if (isNaN(incidenteId)) {
+      return res.status(400).json({ error: 'El parámetro id debe ser un número entero.' })
+    }
+
+    try {
+      const incidente = await prisma.incidente.findUnique({ where: { id: incidenteId } })
+      if (!incidente) {
+        return res.status(404).json({ error: `No existe un incidente con id ${incidenteId}.` })
+      }
+
+      await prisma.$transaction([
+        prisma.involucrado.deleteMany({ where: { incidenteId } }),
+        prisma.casoIncidente.deleteMany({ where: { incidenteId } }),
+        prisma.incidente.delete({ where: { id: incidenteId } }),
+      ])
+
+      res.status(204).send()
+    } catch (error) {
+      console.error('Error al eliminar incidente:', error)
+      res.status(500).json({ error: 'Error al eliminar el incidente.' })
+    }
   }
 );
 

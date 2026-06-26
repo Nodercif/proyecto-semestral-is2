@@ -1,18 +1,22 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 import RegistrarIncidente from './pages/RegistrarIncidente'
 import HistorialEstudiante from './pages/HistorialEstudiante'
 import CrearCaso from './pages/CrearCaso'
 import HistorialCasos from './pages/HistorialCasos'
+import ListaEstudiantes from './pages/ListaEstudiantes'
+import { getMe } from './services/api'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
 function PrivateRoute({ children }) {
-  const { token } = useAuth()
-  return token ? children : <Navigate to="/login" replace />
+  const { token, cargandoUsuario } = useAuth()
+  if (!token) return <Navigate to="/login" replace />
+  if (cargandoUsuario) return null // evita parpadeo/redirección incorrecta mientras se recupera el usuario
+  return children
 }
 
 // Ruta exclusiva para ENCARGADO_CONVIVENCIA
@@ -32,8 +36,30 @@ function RoleBasedRedirect() {
 }
 
 export default function App() {
-  const [token, setToken]     = useState(() => localStorage.getItem('token'))
-  const [usuario, setUsuario] = useState(null)
+  const [token, setToken]               = useState(() => localStorage.getItem('token'))
+  const [usuario, setUsuario]           = useState(null)
+  const [cargandoUsuario, setCargando]  = useState(() => !!localStorage.getItem('token'))
+
+  // Si ya existe un token guardado (recarga de página, nueva pestaña, etc.)
+  // recuperamos el usuario asociado antes de dejar pasar a las rutas privadas.
+  useEffect(() => {
+    if (!token) {
+      setCargando(false)
+      return
+    }
+    let activo = true
+    getMe()
+      .then(res => { if (activo) setUsuario(res.data.usuario ?? res.data) })
+      .catch(() => {
+        if (activo) {
+          localStorage.removeItem('token')
+          setToken(null)
+          setUsuario(null)
+        }
+      })
+      .finally(() => { if (activo) setCargando(false) })
+    return () => { activo = false }
+  }, [token])
 
   const logout = () => {
     localStorage.removeItem('token')
@@ -42,7 +68,7 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={{ token, setToken, usuario, setUsuario, logout }}>
+    <AuthContext.Provider value={{ token, setToken, usuario, setUsuario, cargandoUsuario, logout }}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -64,6 +90,10 @@ export default function App() {
             <Route
               path="estudiantes/historial"
               element={<PrivateRoute><HistorialEstudiante /></PrivateRoute>}
+            />
+            <Route
+              path="estudiantes"
+              element={<PrivateRoute><ListaEstudiantes /></PrivateRoute>}
             />
             <Route
               path="casos"

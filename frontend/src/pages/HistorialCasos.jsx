@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { getCasos, actualizarEstadoCaso } from '../services/api'
+import { getCasos, actualizarEstadoCaso, eliminarCaso, registrarAccion } from '../services/api'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ESTADOS = ['ABIERTO', 'EN_SEGUIMIENTO', 'RESUELTO', 'CERRADO', 'DERIVADO']
+const TIPOS_ACCION = ['CITACION', 'DERIVACION_ORIENTACION', 'ENTREVISTA', 'DERIVACION_PSICOLOGO']
 
 const labelEstado = {
   ABIERTO:             'Abierto',
@@ -64,6 +65,11 @@ export default function HistorialCasos() {
   const [editandoEstado, setEditandoEstado] = useState(null)
   const [nuevoEstado, setNuevoEstado] = useState('')
   const [cambiandoEstado, setCambiandoEstado] = useState(false)
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(null) // id del caso a confirmar
+  const [eliminando, setEliminando] = useState(false)
+  const [agregandoAccionA, setAgregandoAccionA] = useState(null) // id del caso con el form abierto
+  const [nuevaAccion, setNuevaAccion] = useState({ tipo: '', descripcion: '', fecha: '' })
+  const [guardandoAccion, setGuardandoAccion] = useState(false)
 
   const handleFiltroChange = e => setFiltros({ ...filtros, [e.target.name]: e.target.value })
 
@@ -100,6 +106,41 @@ export default function HistorialCasos() {
   }
 
   const toggleExpandido = (id) => setExpandido(expandido === id ? null : id)
+
+  const handleEliminarCaso = async (casoId) => {
+    setEliminando(true)
+    setError('')
+    try {
+      await eliminarCaso(casoId)
+      setResultados(resultados.filter(c => c.id !== casoId))
+      setConfirmandoEliminar(null)
+      if (expandido === casoId) setExpandido(null)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al eliminar el caso')
+    } finally {
+      setEliminando(false)
+    }
+  }
+
+  const handleAgregarAccion = async (e, casoId) => {
+    e.preventDefault()
+    setGuardandoAccion(true)
+    setError('')
+    try {
+      const res = await registrarAccion(casoId, {
+        tipo: nuevaAccion.tipo,
+        descripcion: nuevaAccion.descripcion || undefined,
+        fecha: nuevaAccion.fecha ? new Date(nuevaAccion.fecha).toISOString() : undefined,
+      })
+      setResultados(resultados.map(c => (c.id === casoId ? res.data.data : c)))
+      setNuevaAccion({ tipo: '', descripcion: '', fecha: '' })
+      setAgregandoAccionA(null)
+    } catch (err) {
+      setError(err.response?.data?.errores?.[0] || err.response?.data?.error || 'Error al registrar la acción')
+    } finally {
+      setGuardandoAccion(false)
+    }
+  }
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -269,11 +310,11 @@ export default function HistorialCasos() {
                         Acciones de intervención
                       </p>
                       {acciones.length === 0 ? (
-                        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
+                        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic', marginBottom: 12 }}>
                           Sin acciones registradas aún.
                         </p>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                           {acciones.map((ac) => (
                             <div key={ac.id} style={{
                               display: 'flex', gap: 12, alignItems: 'flex-start',
@@ -303,48 +344,151 @@ export default function HistorialCasos() {
                           ))}
                         </div>
                       )}
+
+                      {/* Agregar nueva acción */}
+                      {agregandoAccionA === caso.id ? (
+                        <form
+                          onSubmit={e => handleAgregarAccion(e, caso.id)}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: 10,
+                            padding: '14px', background: 'var(--surface2)', borderRadius: 8,
+                            border: '1px solid var(--border)',
+                          }}
+                        >
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Tipo de acción *</label>
+                              <select
+                                required value={nuevaAccion.tipo}
+                                onChange={e => setNuevaAccion({ ...nuevaAccion, tipo: e.target.value })}
+                              >
+                                <option value="">Seleccionar...</option>
+                                {TIPOS_ACCION.map(t => <option key={t} value={t}>{labelAccion[t]}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Fecha</label>
+                              <input
+                                type="date" value={nuevaAccion.fecha}
+                                onChange={e => setNuevaAccion({ ...nuevaAccion, fecha: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Descripción</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Ej: Se citó al apoderado para el día lunes..."
+                              value={nuevaAccion.descripcion}
+                              onChange={e => setNuevaAccion({ ...nuevaAccion, descripcion: e.target.value })}
+                              style={{ resize: 'vertical' }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              onClick={() => { setAgregandoAccionA(null); setNuevaAccion({ tipo: '', descripcion: '', fecha: '' }) }}
+                              style={{ fontSize: 13, padding: '8px 16px' }}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              className="btn-primary"
+                              type="submit"
+                              disabled={guardandoAccion}
+                              style={{ fontSize: 13, padding: '8px 16px' }}
+                            >
+                              {guardandoAccion ? 'Guardando...' : 'Guardar acción'}
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <button
+                          className="btn-secondary"
+                          onClick={() => { setAgregandoAccionA(caso.id); setNuevaAccion({ tipo: '', descripcion: '', fecha: '' }) }}
+                          style={{ fontSize: 13, padding: '8px 16px' }}
+                        >
+                          + Agregar acción
+                        </button>
+                      )}
                     </div>
 
-                    {/* Actualizar estado */}
+                    {/* Actualizar estado y eliminar */}
                     <div style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      paddingTop: 16, borderTop: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                      paddingTop: 16, borderTop: '1px solid var(--border)', flexWrap: 'wrap',
                     }}>
-                      {editandoEstado === caso.id ? (
-                        <>
-                          <select
-                            value={nuevoEstado}
-                            onChange={e => setNuevoEstado(e.target.value)}
-                            style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
-                          >
-                            <option value="">Seleccionar estado...</option>
-                            {ESTADOS.filter(e => e !== caso.estado).map(e => (
-                              <option key={e} value={e}>{labelEstado[e]}</option>
-                            ))}
-                          </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        {editandoEstado === caso.id ? (
+                          <>
+                            <select
+                              value={nuevoEstado}
+                              onChange={e => setNuevoEstado(e.target.value)}
+                              style={{ maxWidth: 200, padding: '8px 12px', fontSize: 13 }}
+                            >
+                              <option value="">Seleccionar estado...</option>
+                              {ESTADOS.filter(e => e !== caso.estado).map(e => (
+                                <option key={e} value={e}>{labelEstado[e]}</option>
+                              ))}
+                            </select>
+                            <button
+                              className="btn-primary"
+                              onClick={() => handleCambiarEstado(caso.id)}
+                              disabled={!nuevoEstado || cambiandoEstado}
+                              style={{ fontSize: 13, padding: '8px 16px' }}
+                            >
+                              {cambiandoEstado ? 'Guardando...' : 'Confirmar'}
+                            </button>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => { setEditandoEstado(null); setNuevoEstado('') }}
+                              style={{ fontSize: 13, padding: '8px 16px' }}
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            className="btn-primary"
-                            onClick={() => handleCambiarEstado(caso.id)}
-                            disabled={!nuevoEstado || cambiandoEstado}
+                            className="btn-secondary"
+                            onClick={() => { setEditandoEstado(caso.id); setNuevoEstado('') }}
                             style={{ fontSize: 13, padding: '8px 16px' }}
                           >
-                            {cambiandoEstado ? 'Guardando...' : 'Confirmar'}
+                            Cambiar estado
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Eliminar caso */}
+                      {confirmandoEliminar === caso.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 12, color: 'var(--danger)' }}>¿Eliminar permanentemente?</span>
+                          <button
+                            className="btn-danger"
+                            onClick={() => handleEliminarCaso(caso.id)}
+                            disabled={eliminando}
+                            style={{ fontSize: 13, padding: '8px 16px' }}
+                          >
+                            {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
                           </button>
                           <button
                             className="btn-secondary"
-                            onClick={() => { setEditandoEstado(null); setNuevoEstado('') }}
+                            onClick={() => setConfirmandoEliminar(null)}
                             style={{ fontSize: 13, padding: '8px 16px' }}
                           >
                             Cancelar
                           </button>
-                        </>
+                        </div>
                       ) : (
                         <button
-                          className="btn-secondary"
-                          onClick={() => { setEditandoEstado(caso.id); setNuevoEstado('') }}
-                          style={{ fontSize: 13, padding: '8px 16px' }}
+                          onClick={() => setConfirmandoEliminar(caso.id)}
+                          style={{
+                            background: 'transparent', color: 'var(--danger)',
+                            border: '1px solid var(--danger)', borderRadius: 8,
+                            fontSize: 13, padding: '8px 16px',
+                          }}
                         >
-                          Cambiar estado
+                          Eliminar caso
                         </button>
                       )}
                     </div>

@@ -21,6 +21,7 @@ export default function Layout() {
     // Todos los roles
     { to: '/estudiantes/historial', label: 'Ver Incidentes', icon: '⌕' },
     { to: '/casos',                 label: 'Ver Casos',      icon: '⌕' },
+    { to: '/estudiantes',           label: 'Ver Estudiantes', icon: '⌕' },
   ]
 
   return (
@@ -48,7 +49,7 @@ export default function Layout() {
 
         <nav style={{ flex: 1, padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {links.map(({ to, label, icon }) => (
-            <NavLink key={to} to={to} style={({ isActive }) => ({
+            <NavLink key={to} to={to} end style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 12px', borderRadius: 8,
               textDecoration: 'none', fontSize: 14, fontWeight: 600,

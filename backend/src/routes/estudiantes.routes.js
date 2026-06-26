@@ -4,6 +4,10 @@
  *
  * GET /estudiantes                   → búsqueda por nombre parcial y/o curso (con paginación)
  * GET /estudiantes/:id/incidentes    → historial de incidentes de un estudiante
+ * GET /estudiantes/curso/:curso/incidentes → historial por curso
+ * POST /estudiantes                  → crear un nuevo estudiante
+ * PUT /estudiantes/:id               → actualizar un estudiante
+ * DELETE /estudiantes/:id            → eliminar un estudiante (solo si no tiene incidentes)
  */
 
 import { Router } from 'express';
@@ -28,11 +32,9 @@ router.get('/', async (req, res) => {
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const skip  = (page - 1) * limit;
 
-  // Construir filtro dinámicamente según los parámetros recibidos
   const where = {};
 
   if (nombre && nombre.trim() !== '') {
-    // Búsqueda parcial en nombres O apellidos, sin importar mayúsculas
     where.OR = [
       { nombres:   { contains: nombre.trim(), mode: 'insensitive' } },
       { apellidos: { contains: nombre.trim(), mode: 'insensitive' } },
@@ -44,7 +46,6 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    // Ejecutar conteo y búsqueda en paralelo para mejor rendimiento
     const [total, estudiantes] = await Promise.all([
       prisma.estudiante.count({ where }),
       prisma.estudiante.findMany({
@@ -151,6 +152,7 @@ router.get('/:id/incidentes', async (req, res) => {
   });
 });
 
+// ── GET /estudiantes/curso/:curso/incidentes ─────────────────────────────────
 router.get('/curso/:curso/incidentes', async (req, res) => {
   const curso = decodeURIComponent(req.params.curso)
 
@@ -220,6 +222,132 @@ router.get('/curso/:curso/incidentes', async (req, res) => {
     totalIncidentes:  incidentes.length,
     incidentes,
   })
-})
+});
+
+// ── POST /estudiantes ─────────────────────────────────────────────────────────
+// Crear un nuevo estudiante
+router.post('/', async (req, res) => {
+  const { rut, nombres, apellidos, curso } = req.body;
+
+  const errores = [];
+  if (!rut || rut.trim() === '') errores.push('RUT es obligatorio.');
+  if (!nombres || nombres.trim() === '') errores.push('Nombres son obligatorios.');
+  if (!apellidos || apellidos.trim() === '') errores.push('Apellidos son obligatorios.');
+  if (!curso || curso.trim() === '') errores.push('Curso es obligatorio.');
+
+  if (errores.length > 0) {
+    return res.status(400).json({ errores });
+  }
+
+  try {
+    // Verificar RUT único
+    const existente = await prisma.estudiante.findUnique({
+      where: { rut: rut.trim() }
+    });
+    if (existente) {
+      return res.status(409).json({ error: `Ya existe un estudiante con RUT ${rut}.` });
+    }
+
+    const nuevo = await prisma.estudiante.create({
+      data: {
+        rut: rut.trim(),
+        nombres: nombres.trim(),
+        apellidos: apellidos.trim(),
+        curso: curso.trim(),
+      },
+    });
+
+    return res.status(201).json({ data: nuevo });
+  } catch (error) {
+    console.error('[POST /estudiantes] Error:', error);
+    return res.status(500).json({ error: 'Error al crear el estudiante.' });
+  }
+});
+
+// ── PUT /estudiantes/:id ──────────────────────────────────────────────────────
+// Actualizar un estudiante existente
+router.put('/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  const { rut, nombres, apellidos, curso } = req.body;
+
+  const errores = [];
+  if (rut && rut.trim() === '') errores.push('RUT no puede estar vacío.');
+  if (nombres && nombres.trim() === '') errores.push('Nombres no pueden estar vacíos.');
+  if (apellidos && apellidos.trim() === '') errores.push('Apellidos no pueden estar vacíos.');
+  if (curso && curso.trim() === '') errores.push('Curso no puede estar vacío.');
+
+  if (errores.length > 0) {
+    return res.status(400).json({ errores });
+  }
+
+  try {
+    const existente = await prisma.estudiante.findUnique({ where: { id } });
+    if (!existente) {
+      return res.status(404).json({ error: `Estudiante con id ${id} no encontrado.` });
+    }
+
+    // Si se cambia el RUT, verificar que no esté en uso por otro estudiante
+    if (rut && rut.trim() !== existente.rut) {
+      const duplicado = await prisma.estudiante.findUnique({
+        where: { rut: rut.trim() }
+      });
+      if (duplicado) {
+        return res.status(409).json({ error: `El RUT ${rut} ya está registrado por otro estudiante.` });
+      }
+    }
+
+    const data = {};
+    if (rut) data.rut = rut.trim();
+    if (nombres) data.nombres = nombres.trim();
+    if (apellidos) data.apellidos = apellidos.trim();
+    if (curso) data.curso = curso.trim();
+
+    const actualizado = await prisma.estudiante.update({
+      where: { id },
+      data,
+    });
+
+    return res.status(200).json({ data: actualizado });
+  } catch (error) {
+    console.error('[PUT /estudiantes/:id] Error:', error);
+    return res.status(500).json({ error: 'Error al actualizar el estudiante.' });
+  }
+});
+
+// ── DELETE /estudiantes/:id ───────────────────────────────────────────────────
+// Eliminar un estudiante (solo si no tiene incidentes asociados)
+router.delete('/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  try {
+    const existente = await prisma.estudiante.findUnique({ where: { id } });
+    if (!existente) {
+      return res.status(404).json({ error: `Estudiante con id ${id} no encontrado.` });
+    }
+
+    // Verificar si tiene involucrados (incidentes asociados)
+    const involucrados = await prisma.involucrado.count({
+      where: { estudianteId: id }
+    });
+    if (involucrados > 0) {
+      return res.status(409).json({
+        error: 'No se puede eliminar el estudiante porque tiene incidentes asociados. Elimine los incidentes primero.'
+      });
+    }
+
+    await prisma.estudiante.delete({ where: { id } });
+    return res.status(204).send();
+  } catch (error) {
+    console.error('[DELETE /estudiantes/:id] Error:', error);
+    return res.status(500).json({ error: 'Error al eliminar el estudiante.' });
+  }
+});
 
 export default router;

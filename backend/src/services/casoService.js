@@ -179,13 +179,148 @@ async function actualizarEstadoCaso(casoId, nuevoEstado) {
   })
 }
 
+async function eliminarCaso(casoId) {
+  casoId = Number(casoId)
+
+  const caso = await prisma.caso.findUnique({ where: { id: casoId } })
+  if (!caso) {
+    const error = new Error('El caso no existe.')
+    error.tipo = 'NO_ENCONTRADO'
+    throw error
+  }
+
+  // Borrado permanente en cascada: primero las relaciones que dependen
+  // del caso (acciones y asociaciones con incidentes), y al final el caso.
+  // Los incidentes en sí NO se eliminan, solo se desasocian de este caso.
+  await prisma.$transaction([
+    prisma.accionIntervencion.deleteMany({ where: { casoId } }),
+    prisma.casoIncidente.deleteMany({ where: { casoId } }),
+    prisma.caso.delete({ where: { id: casoId } }),
+  ])
+}
+
+async function editarCaso(casoId, datos) {
+  casoId = Number(casoId)
+
+  const caso = await prisma.caso.findUnique({ where: { id: casoId } })
+  if (!caso) {
+    const error = new Error('El caso no existe.')
+    error.tipo = 'NO_ENCONTRADO'
+    throw error
+  }
+
+  const errores = []
+  if (datos.titulo !== undefined && String(datos.titulo).trim() === '') {
+    errores.push('El campo "titulo" no puede estar vacío.')
+  }
+  if (datos.descripcion !== undefined && datos.descripcion !== null && String(datos.descripcion).trim() === '') {
+    errores.push('El campo "descripcion" no puede estar vacío si se envía.')
+  }
+  if (errores.length > 0) {
+    const error = new Error('Datos inválidos')
+    error.tipo = 'VALIDACION'
+    error.errores = errores
+    throw error
+  }
+
+  const data = {}
+  if (datos.titulo !== undefined) data.titulo = String(datos.titulo).trim()
+  if (datos.descripcion !== undefined) {
+    data.descripcion = datos.descripcion === null ? null : String(datos.descripcion).trim()
+  }
+
+  return prisma.caso.update({
+    where: { id: casoId },
+    data,
+    include: INCLUDE_CASO_COMPLETO,
+  })
+}
+
+async function desasociarIncidenteDelCaso(casoId, incidenteId) {
+  casoId = Number(casoId)
+  incidenteId = Number(incidenteId)
+
+  const relacion = await prisma.casoIncidente.findUnique({
+    where: { casoId_incidenteId: { casoId, incidenteId } },
+  })
+  if (!relacion) {
+    const error = new Error('El incidente no está asociado a este caso.')
+    error.tipo = 'NO_ENCONTRADO'
+    throw error
+  }
+
+  await prisma.casoIncidente.delete({
+    where: { casoId_incidenteId: { casoId, incidenteId } },
+  })
+
+  return prisma.caso.findUnique({ where: { id: casoId }, include: INCLUDE_CASO_COMPLETO })
+}
+
+async function editarAccion(casoId, accionId, datos) {
+  casoId = Number(casoId)
+  accionId = Number(accionId)
+
+  const accion = await prisma.accionIntervencion.findUnique({ where: { id: accionId } })
+  if (!accion || accion.casoId !== casoId) {
+    const error = new Error('La acción no existe en este caso.')
+    error.tipo = 'NO_ENCONTRADO'
+    throw error
+  }
+
+  const errores = []
+  if (datos.tipo !== undefined && !TIPOS_ACCION_VALIDOS.includes(datos.tipo)) {
+    errores.push(`El campo "tipo" debe ser uno de: ${TIPOS_ACCION_VALIDOS.join(', ')}.`)
+  }
+  if (datos.fecha !== undefined && isNaN(new Date(datos.fecha).getTime())) {
+    errores.push('El campo "fecha" debe ser una fecha válida (ISO 8601).')
+  }
+  if (errores.length > 0) {
+    const error = new Error('Datos inválidos')
+    error.tipo = 'VALIDACION'
+    error.errores = errores
+    throw error
+  }
+
+  const data = {}
+  if (datos.tipo !== undefined) data.tipo = datos.tipo
+  if (datos.descripcion !== undefined) {
+    data.descripcion = datos.descripcion === null ? null : String(datos.descripcion).trim()
+  }
+  if (datos.fecha !== undefined) data.fecha = new Date(datos.fecha)
+
+  await prisma.accionIntervencion.update({ where: { id: accionId }, data })
+
+  return prisma.caso.findUnique({ where: { id: casoId }, include: INCLUDE_CASO_COMPLETO })
+}
+
+async function eliminarAccion(casoId, accionId) {
+  casoId = Number(casoId)
+  accionId = Number(accionId)
+
+  const accion = await prisma.accionIntervencion.findUnique({ where: { id: accionId } })
+  if (!accion || accion.casoId !== casoId) {
+    const error = new Error('La acción no existe en este caso.')
+    error.tipo = 'NO_ENCONTRADO'
+    throw error
+  }
+
+  await prisma.accionIntervencion.delete({ where: { id: accionId } })
+
+  return prisma.caso.findUnique({ where: { id: casoId }, include: INCLUDE_CASO_COMPLETO })
+}
+
 export {
   crearCaso,
   asociarIncidenteAlCaso,
+  desasociarIncidenteDelCaso,
   obtenerCaso,
   listarCasos,
   registrarAccion,
+  editarAccion,
+  eliminarAccion,
   actualizarEstadoCaso,
+  editarCaso,
+  eliminarCaso,
   validarDatosCaso,
   validarDatosAccion,
 }

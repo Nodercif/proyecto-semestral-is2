@@ -64,6 +64,72 @@ router.patch(
   casoController.actualizarEstado
 )
 
+// PUT /casos/:id
+router.put(
+  '/:id',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.editarCaso
+)
+
+// DELETE /casos/:id/incidentes/:incidenteId
+router.delete(
+  '/:id/incidentes/:incidenteId',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.desasociarIncidente
+)
+
+// PUT /casos/:id/acciones/:accionId
+router.put(
+  '/:id/acciones/:accionId',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.editarAccion
+)
+
+// DELETE /casos/:id/acciones/:accionId
+router.delete(
+  '/:id/acciones/:accionId',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA,
+    ROLES.INSPECTOR,
+    ROLES.DOCENTE,
+    ROLES.ORIENTADOR,
+    ROLES.EQUIPO_DIRECTIVO
+  ),
+  casoController.eliminarAccion
+)
+
+// DELETE /casos/:id
+router.delete(
+  '/:id',
+  authorize(
+    ROLES.ADMINISTRADOR,
+    ROLES.ENCARGADO_CONVIVENCIA
+  ),
+  casoController.eliminarCaso
+)
+
 // GET /casos/:id
 router.get(
   '/:id',
