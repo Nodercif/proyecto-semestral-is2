@@ -18,8 +18,8 @@ const toTimeInput = (iso) => (iso ? new Date(iso).toISOString().slice(11, 16) : 
 
 export default function HistorialEstudiante() {
   const [modoBusqueda, setModoBusqueda] = useState('id') // 'id' | 'curso'
-  const [estudianteInput, setEstudianteInput] = useState('') // texto ingresado por usuario (puede ser ID o nombre)
-  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null) // objeto estudiante seleccionado después de búsqueda
+  const [estudianteInput, setEstudianteInput] = useState('')
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null)
   const [cursoSeleccionado, setCursoSeleccionado] = useState('')
   const [filtros, setFiltros] = useState({ tipo: '', gravedad: '', rolInvolucrado: '', desde: '', hasta: '' })
   const [resultado, setResultado] = useState(null)
@@ -67,6 +67,37 @@ export default function HistorialEstudiante() {
     }
   }
 
+  // Función auxiliar para mostrar todos los incidentes (con filtros opcionales)
+  const mostrarTodos = async (params) => {
+    setLoading(true)
+    setError('')
+    setResultado(null)
+    try {
+      const incidentesParams = {}
+      if (params.tipo) incidentesParams.tipo = params.tipo
+      if (params.gravedad) incidentesParams.gravedad = params.gravedad
+      if (params.desde) incidentesParams.desde = params.desde
+      if (params.hasta) incidentesParams.hasta = params.hasta
+
+      const res = await getIncidentes(incidentesParams)
+      const incidentes = res.data.data.map(inc => ({
+        incidente: inc,
+        rol: null,
+        observacion: null,
+        estudiante: null,
+      }))
+      setResultado({
+        totalIncidentes: incidentes.length,
+        incidentes,
+        vistaGeneral: true,
+      })
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al cargar todos los incidentes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Función para cargar historial de un estudiante dado su ID
   const cargarHistorialEstudiante = async (id) => {
     setLoading(true)
@@ -90,17 +121,19 @@ export default function HistorialEstudiante() {
   const handleBuscar = async (e) => {
     e.preventDefault()
 
-    // Caso 1: modo curso
+    const params = Object.fromEntries(Object.entries(filtros).filter(([, v]) => v !== ''))
+
+    // ---- MODO CURSO ----
     if (modoBusqueda === 'curso') {
       if (!cursoSeleccionado) {
-        setError('Seleccione un curso para buscar.')
+        // Sin curso → mostrar todos
+        await mostrarTodos(params)
         return
       }
-      setError('')
+      // Con curso seleccionado
       setLoading(true)
       setResultado(null)
       try {
-        const params = Object.fromEntries(Object.entries(filtros).filter(([, v]) => v !== ''))
         const res = await getHistorialCurso(cursoSeleccionado, params)
         setResultado(res.data)
       } catch (err) {
@@ -111,25 +144,25 @@ export default function HistorialEstudiante() {
       return
     }
 
-    // Caso 2: modo estudiante (ID o nombre)
+    // ---- MODO ESTUDIANTE ----
     if (!estudianteInput.trim()) {
-      setError('Ingrese el ID o nombre del estudiante (o déjelo vacío para ver todos).')
+      // Campo vacío → mostrar todos
+      await mostrarTodos(params)
       return
     }
 
-    // Si el estudianteInput es un número, intentar buscar por ID directamente
+    // Si es número → buscar por ID
     const idNumerico = parseInt(estudianteInput.trim(), 10)
     if (!isNaN(idNumerico) && idNumerico > 0) {
-      // Intentar cargar historial por ID
       try {
         await cargarHistorialEstudiante(idNumerico)
-      } catch (err) {
+      } catch {
         setError('No se encontró un estudiante con ese ID.')
       }
       return
     }
 
-    // Si no es número, buscar estudiantes por nombre
+    // Si no es número → buscar por nombre
     setBuscandoEstudiantes(true)
     setError('')
     setEstudiantesEncontrados([])
@@ -141,10 +174,8 @@ export default function HistorialEstudiante() {
         setError(`No se encontraron estudiantes con el nombre "${estudianteInput.trim()}".`)
         setEstudiantesEncontrados([])
       } else if (estudiantes.length === 1) {
-        // Solo uno, cargar directamente
         await cargarHistorialEstudiante(estudiantes[0].id)
       } else {
-        // Múltiples, mostrar lista para seleccionar
         setEstudiantesEncontrados(estudiantes)
         setError('Se encontraron varios estudiantes. Seleccione uno de la lista:')
       }
@@ -301,7 +332,7 @@ export default function HistorialEstudiante() {
         Historial de Incidentes
       </h2>
       <p style={{ color: 'var(--muted)', marginBottom: 28, fontSize: 14 }}>
-        Consulte el historial por estudiante (nombre o ID) o por curso. Puede filtrar por tipo, gravedad, rol o rango de fechas.
+        Consulte el historial por estudiante (nombre o ID) o por curso. Deje vacío para ver todos los incidentes.
       </p>
 
       <div className="card" style={{ marginBottom: 24 }}>

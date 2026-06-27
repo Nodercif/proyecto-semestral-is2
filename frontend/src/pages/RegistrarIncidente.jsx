@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { crearIncidenteCompleto, getEstudiantes } from '../services/api';
+import { crearIncidente, getEstudiantes } from '../services/api';
 import { CURSOS } from '../constants/cursos';
 
 const TIPOS = ['CONFLICTO', 'AGRESION_FISICA', 'AGRESION_VERBAL', 'ACOSO', 'DANO_MATERIAL'];
@@ -10,7 +10,6 @@ const labelTipo = { CONFLICTO: 'Conflicto', AGRESION_FISICA: 'Agresión Física'
 const labelGravedad = { LEVE: 'Leve', MODERADO: 'Moderado', GRAVE: 'Grave', MUY_GRAVE: 'Muy Grave' };
 
 export default function RegistrarIncidente() {
-  // Paso 1: datos del incidente (sin guardar)
   const [form, setForm] = useState({
     fecha: '',
     hora: '',
@@ -19,7 +18,6 @@ export default function RegistrarIncidente() {
     gravedad: ''
   });
 
-  // Paso 2: involucrados (locales)
   const [involucrados, setInvolucrados] = useState([]);
   const [busquedaNombre, setBusquedaNombre] = useState('');
   const [busquedaCurso, setBusquedaCurso] = useState('');
@@ -62,7 +60,6 @@ export default function RegistrarIncidente() {
     return () => clearTimeout(debounceRef.current);
   }, [busquedaNombre, busquedaCurso, paso]);
 
-  // Pasar al paso 2 sin guardar
   const handleContinuar = (e) => {
     e.preventDefault();
     if (!form.fecha || !form.descripcion || !form.tipo || !form.gravedad) {
@@ -73,13 +70,11 @@ export default function RegistrarIncidente() {
     setPaso(2);
   };
 
-  // Volver al paso 1 (retroceder)
   const handleVolver = () => {
     setPaso(1);
     setError('');
   };
 
-  // Agregar involucrado localmente (sin persistir)
   const handleAgregarInvolucrado = (e) => {
     e.preventDefault();
     if (!estudianteSeleccionado || !rolInv) {
@@ -97,10 +92,9 @@ export default function RegistrarIncidente() {
         estudianteId: estudianteSeleccionado.id,
         rol: rolInv,
         observacion: observacionInv || undefined,
-        _estudiante: estudianteSeleccionado, // para mostrar
+        _estudiante: estudianteSeleccionado,
       }
     ]);
-    // Resetear búsqueda
     setEstudianteSeleccionado(null);
     setBusquedaNombre('');
     setBusquedaCurso('');
@@ -114,7 +108,6 @@ export default function RegistrarIncidente() {
     setInvolucrados(involucrados.filter((_, i) => i !== idx));
   };
 
-  // Guardar todo al final
   const handleFinalizar = async () => {
     if (involucrados.length === 0) {
       setError('Debe agregar al menos un involucrado.');
@@ -124,7 +117,7 @@ export default function RegistrarIncidente() {
     setError('');
     try {
       const fechaHora = new Date(`${form.fecha}T${form.hora || '00:00'}`);
-      const payload = {
+      const res = await crearIncidente({
         fecha: fechaHora.toISOString(),
         descripcion: form.descripcion,
         tipo: form.tipo,
@@ -134,10 +127,10 @@ export default function RegistrarIncidente() {
           rol: inv.rol,
           observacion: inv.observacion,
         })),
-      };
-      const res = await crearIncidenteCompleto(payload);
-      setExito(`Incidente #${res.data.data.id} registrado con ${involucrados.length} involucrado(s).`);
-      // Reiniciar
+      });
+      const incidenteId = res.data.data.id;
+
+      setExito(`Incidente #${incidenteId} registrado con ${involucrados.length} involucrado(s).`);
       setForm({ fecha: '', hora: '', descripcion: '', tipo: '', gravedad: '' });
       setInvolucrados([]);
       setPaso(1);
@@ -167,7 +160,6 @@ export default function RegistrarIncidente() {
         <p className="success-msg">✓ {exito}</p>
       </div>}
 
-      {/* Pasos */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         {['Datos del incidente', 'Involucrados'].map((label, i) => (
           <div key={i} style={{
@@ -181,7 +173,7 @@ export default function RegistrarIncidente() {
         ))}
       </div>
 
-      {/* Paso 1 */}
+      {/* ── Paso 1: datos del incidente ─────────────────────────────────────── */}
       {paso === 1 && (
         <div className="card">
           <form onSubmit={handleContinuar} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -223,7 +215,7 @@ export default function RegistrarIncidente() {
         </div>
       )}
 
-      {/* Paso 2 */}
+      {/* ── Paso 2: involucrados ─────────────────────────────────────────────── */}
       {paso === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card" style={{ borderColor: 'rgba(79,142,247,0.3)' }}>
@@ -231,9 +223,6 @@ export default function RegistrarIncidente() {
             <p style={{ fontSize: 15, fontWeight: 500 }}>
               {labelTipo[form.tipo]} · {labelGravedad[form.gravedad]} · {new Date(form.fecha).toLocaleDateString('es-CL')}
             </p>
-            <button className="btn-secondary" onClick={handleVolver} style={{ fontSize: 13, padding: '6px 14px' }}>
-              ← Volver
-            </button>
           </div>
 
           <div className="card">
@@ -255,27 +244,43 @@ export default function RegistrarIncidente() {
 
             {(busquedaNombre || busquedaCurso) && !estudianteSeleccionado && (
               <div style={{ marginBottom: 16 }}>
-                {buscandoEstudiantes ? <p>Buscando...</p> :
-                  resultadosFiltrados.length === 0 ? <p>No se encontraron estudiantes.</p> :
+                {buscandoEstudiantes ? (
+                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>Buscando...</p>
+                ) : resultadosFiltrados.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>No se encontraron estudiantes.</p>
+                ) : (
                   <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {resultadosFiltrados.map(est => (
                       <div key={est.id} onClick={() => setEstudianteSeleccionado(est)}
-                        style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px',
-                          background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer' }}>
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', padding: '10px 14px',
+                          background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)',
+                          cursor: 'pointer', transition: 'border-color 0.15s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                      >
                         <span>{est.nombres} {est.apellidos}</span>
                         <span style={{ color: 'var(--muted)' }}>{est.curso}</span>
                       </div>
                     ))}
                   </div>
-                }
+                )}
               </div>
             )}
 
             {estudianteSeleccionado && (
-              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(45,122,79,0.06)', borderRadius: 8 }}>
-                ✓ {estudianteSeleccionado.nombres} {estudianteSeleccionado.apellidos} ({estudianteSeleccionado.curso})
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: 16, padding: '10px 14px',
+                background: 'rgba(45,122,79,0.06)', border: '1px solid rgba(45,122,79,0.25)', borderRadius: 8,
+              }}>
+                <span style={{ fontSize: 13 }}>
+                  ✓ {estudianteSeleccionado.nombres} {estudianteSeleccionado.apellidos}
+                  <span style={{ color: 'var(--muted)', marginLeft: 8 }}>{estudianteSeleccionado.curso}</span>
+                </span>
                 <button onClick={() => { setEstudianteSeleccionado(null); setBusquedaNombre(''); setBusquedaCurso(''); }}
-                  style={{ marginLeft: 12, background: 'transparent', color: 'var(--muted)' }}>
+                  style={{ background: 'transparent', color: 'var(--muted)', fontSize: 12, padding: '2px 8px' }}>
                   Cambiar
                 </button>
               </div>
@@ -295,7 +300,7 @@ export default function RegistrarIncidente() {
                   onChange={e => setObservacionInv(e.target.value)} />
               </div>
               {error && <p className="error-msg">{error}</p>}
-              <button className="btn-secondary" type="submit" disabled={!estudianteSeleccionado}>
+              <button className="btn-secondary" type="submit" disabled={!estudianteSeleccionado || !rolInv}>
                 + Agregar involucrado
               </button>
             </form>
@@ -307,15 +312,18 @@ export default function RegistrarIncidente() {
                 Involucrados ({involucrados.length})
               </h3>
               {involucrados.map((inv, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px',
-                  background: 'var(--surface2)', borderRadius: 8, marginBottom: 6 }}>
-                  <span>
-                    {inv._estudiante.nombres} {inv._estudiante.apellidos} ({inv._estudiante.curso})
-                    <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}>{inv.rol}</span>
-                    {inv.observacion && <span style={{ marginLeft: 8, fontStyle: 'italic' }}>— {inv.observacion}</span>}
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6,
+                }}>
+                  <span style={{ fontSize: 13 }}>
+                    {inv._estudiante.nombres} {inv._estudiante.apellidos}
+                    <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 12 }}>{inv._estudiante.curso}</span>
+                    <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>{inv.rol}</span>
+                    {inv.observacion && <span style={{ marginLeft: 8, fontSize: 12, fontStyle: 'italic', color: 'var(--muted)' }}>— {inv.observacion}</span>}
                   </span>
                   <button onClick={() => handleQuitarInvolucrado(idx)}
-                    style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer' }}>
+                    style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer', fontSize: 16 }}>
                     ✕
                   </button>
                 </div>
@@ -323,10 +331,11 @@ export default function RegistrarIncidente() {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button className="btn-secondary" onClick={handleVolver}>← Volver</button>
-            <button className="btn-primary" onClick={handleFinalizar} disabled={loading || involucrados.length === 0}>
-              {loading ? 'Guardando...' : 'Finalizar registro'}
+            <button className="btn-primary" onClick={handleFinalizar} disabled={loading || involucrados.length === 0}
+              style={{ padding: '11px 28px' }}>
+              {loading ? 'Guardando...' : `Finalizar registro`}
             </button>
           </div>
         </div>
